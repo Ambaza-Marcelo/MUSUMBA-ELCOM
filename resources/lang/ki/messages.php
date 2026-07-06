@@ -2803,6 +2803,7 @@ return[
 	'confirm_delete_production_order' => 'Gufuta iyi commande y\'ubwikorezi ?',
 	'confirm_update_production_order' => 'Guhindura iyi commande y\'ubwikorezi ?',
 	'confirm_create_production_order' => 'Kurema iyi commande y\'ubwikorezi ?',
+	'production_order_select_fg_store_first' => 'Hitamo ububiko bw\'ibicuruzwa byuzuye mbere',
 	'confirm_delete_requisition' => 'Gufuta iyi requisition ? Ntibisubirwamwo.',
 	'production_plan_details' => 'Ibisobanuro vya gahunda',
 	'stockin_approved_locked' => 'Iyi stockin yemejwe (status = 4) ntishobora guhindurwa.',

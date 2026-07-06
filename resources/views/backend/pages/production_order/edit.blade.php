@@ -13,8 +13,11 @@
     .autocomplete-wrapper {
         position: relative;
     }
+    #finishedGoodsTable,
+    #rawMaterialsTable,
     #finishedGoodsTable td,
-    #rawMaterialsTable td {
+    #rawMaterialsTable td,
+    .card-body {
         overflow: visible;
         position: relative;
     }
@@ -146,12 +149,17 @@
                                         <input type="text" class="form-control item_search" value="{{ $good->item->code }} - {{ $good->item->name }}" placeholder="@lang('messages.type_to_search_item')" autocomplete="off" required>
                                         <input type="hidden" name="item_id[]" class="item_id" value="{{ $good->item_id }}">
                                         <input type="hidden" class="item_code" value="{{ $good->item->code }}">
-                                        <div class="autocomplete-list item_search-list"></div>
                                     </div>
                                 </td>  
                                 <td><input type="number" name="item_quantity[]" value="{{ $good->item_quantity }}" placeholder="@lang('messages.quantity_placeholder')" class="form-control" min="0" step="any" required /></td>
                                 <td><input type="number" name="cost_price[]" value="{{ $good->cost_price }}" placeholder="@lang('messages.cost_price_placeholder')" class="form-control" min="0" step="any" /></td>
-                                <td><button type="button" name="add_finished" id="add_finished" class="btn btn-success">@lang('messages.Add More')</button></td>     
+                                <td>
+                                    @if($loop->first)
+                                    <button type="button" class="btn btn-success add-finished-btn">@lang('messages.Add More')</button>
+                                    @else
+                                    <button type="button" class="btn btn-danger remove-tr">@lang('messages.Delete')</button>
+                                    @endif
+                                </td>     
                             </tr>
                             @endforeach
                             @if($finishedGoods->isEmpty())
@@ -161,12 +169,11 @@
                                         <input type="text" class="form-control item_search" placeholder="@lang('messages.type_to_search_item')" autocomplete="off" required>
                                         <input type="hidden" name="item_id[]" class="item_id">
                                         <input type="hidden" class="item_code" value="">
-                                        <div class="autocomplete-list item_search-list"></div>
                                     </div>
                                 </td>  
                                 <td><input type="number" name="item_quantity[]" placeholder="@lang('messages.quantity_placeholder')" class="form-control" min="0" step="any" required /></td>
                                 <td><input type="number" name="cost_price[]" placeholder="@lang('messages.cost_price_placeholder')" class="form-control" min="0" step="any" /></td>
-                                <td><button type="button" name="add_finished" id="add_finished" class="btn btn-success">@lang('messages.Add More')</button></td>     
+                                <td><button type="button" class="btn btn-success add-finished-btn">@lang('messages.Add More')</button></td>     
                             </tr>
                             @endif
                         </table>
@@ -193,7 +200,6 @@
                                         <div class="autocomplete-wrapper">
                                             <input type="text" class="form-control raw_material_search" value="{{ $material->rawMaterial->name }} ({{ $material->rawMaterial->rawMaterialMeasurement->purchase_unit ?? 'N/A' }})" placeholder="@lang('messages.type_to_search_raw_material')" autocomplete="off" required>
                                             <input type="hidden" name="r_material_id[]" class="r_material_id" value="{{ $material->r_material_id }}">
-                                            <div class="autocomplete-list raw_material_search-list"></div>
                                         </div>
                                     </td>  
                                     <td><input type="number" name="material_quantity[]" value="{{ $material->material_quantity }}" placeholder="@lang('messages.quantity_placeholder')" class="form-control" min="0" step="any" required /></td>
@@ -254,502 +260,13 @@
     </div>
 </div>
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
-<script type="text/javascript">
-    var itemsSearchUrl = {!! json_encode(route('admin.production-order.items-search')) !!};
-    var itemsSearchTimer = null;
+@endsection
 
-    function getSelectedStoreParams() {
-        var storeType = $('#finished_goods_store_type').val();
-        var storeId = storeType === 'SM' ? $('#finished_g_sm_store_id').val() : $('#finished_g_store_id').val();
-        return { storeType: storeType, storeId: storeId };
-    }
-
-    function fetchItemsForStore(query, callback) {
-        var params = getSelectedStoreParams();
-        if (!params.storeType || !params.storeId) {
-            callback([]);
-            return;
-        }
-        $.get(itemsSearchUrl, {
-            q: query || '',
-            store_type: params.storeType,
-            store_id: params.storeId,
-            limit: 20
-        }).done(function (data) {
-            callback((data && data.results) ? data.results : []);
-        }).fail(function () {
-            callback([]);
-        });
-    }
-
-    // ItemDetails data - raw materials for each item
-    var itemDetails = [
-        @foreach($itemDetails as $itemDetail)
-        {
-            item_code: {!! json_encode($itemDetail->code) !!},
-            r_material_id: {{ $itemDetail->r_material_id ?? 0 }},
-            raw_material_name: {!! json_encode($itemDetail->rawMaterial ? $itemDetail->rawMaterial->name . ' (' . ($itemDetail->rawMaterial->rawMaterialMeasurement ? $itemDetail->rawMaterial->rawMaterialMeasurement->purchase_unit : 'N/A') . ')' : 'N/A') !!},
-            quantity: {{ $itemDetail->quantity ?? 0 }},
-            unit: {!! json_encode($itemDetail->rawMaterial && $itemDetail->rawMaterial->rawMaterialMeasurement ? $itemDetail->rawMaterial->rawMaterialMeasurement->purchase_unit : '') !!},
-            raw_material_cump: {{ $itemDetail->rawMaterial ? ($itemDetail->rawMaterial->cump ?? 0) : 0 }}
-        }@if(!$loop->last),@endif
-        @endforeach
-    ];
-
-    // Raw materials data for autocomplete
-    var rawMaterials = [
-        @foreach($raw_materials as $raw_material)
-        {
-            id: {{ $raw_material->id }},
-            name: {!! json_encode($raw_material->name . ' (' . ($raw_material->rawMaterialMeasurement ? $raw_material->rawMaterialMeasurement->purchase_unit : 'N/A') . ')') !!},
-            unit: {!! json_encode($raw_material->rawMaterialMeasurement ? $raw_material->rawMaterialMeasurement->purchase_unit : '') !!},
-            cump: {{ $raw_material->cump ?? 0 }}
-        }@if(!$loop->last),@endif
-        @endforeach
-    ];
-
-    // Function to initialize item autocomplete
-    function initializeItemAutocomplete(wrapper) {
-        var input = wrapper.find('.item_search');
-        var hidden = wrapper.find('.item_id');
-        var codeHidden = wrapper.find('.item_code');
-        var list = wrapper.find('.item_search-list');
-        var selectedIndex = -1;
-
-        input.off('input.item keydown.item');
-
-        input.on('input.item', function() {
-            var searchText = $(this).val().toLowerCase();
-            list.empty();
-            selectedIndex = -1;
-
-            if (searchText === '') {
-                list.hide();
-                hidden.val('');
-                codeHidden.val('');
-                return;
-            }
-
-            clearTimeout(itemsSearchTimer);
-            itemsSearchTimer = setTimeout(function () {
-                fetchItemsForStore(searchText, function (matches) {
-                    list.empty();
-                    selectedIndex = -1;
-                    if (!matches || matches.length === 0) {
-                        list.hide();
-                        return;
-                    }
-                    matches.forEach(function(item, index) {
-                        var div = $('<div></div>')
-                            .text(item.label)
-                            .attr('data-id', item.id)
-                            .attr('data-code', item.code || '');
-                        if (index === 0) {
-                            div.addClass('autocomplete-active');
-                            selectedIndex = 0;
-                        }
-                        div.on('click', function() {
-                            input.val(item.label);
-                            hidden.val(item.id);
-                            codeHidden.val(item.code || '');
-                            recalculateAllRawMaterials();
-                            list.hide();
-                        });
-                        list.append(div);
-                    });
-                    list.show();
-                if (window.AcDropdown) AcDropdown.positionForList(list);
-                });
-            }, 200);
-        });
-
-        input.on('keydown.item', function(e) {
-            var items = list.find('div');
-            if (e.keyCode === 40) {
-                e.preventDefault();
-                selectedIndex = (selectedIndex < items.length - 1) ? selectedIndex + 1 : selectedIndex;
-                items.removeClass('autocomplete-active').eq(selectedIndex).addClass('autocomplete-active');
-            } else if (e.keyCode === 38) {
-                e.preventDefault();
-                selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : 0;
-                items.removeClass('autocomplete-active').eq(selectedIndex).addClass('autocomplete-active');
-            } else if (e.keyCode === 13) {
-                e.preventDefault();
-                if (selectedIndex >= 0) {
-                    items.eq(selectedIndex).click();
-                }
-            }
-        });
-    }
-
-    // Function to initialize raw material autocomplete
-    function initializeRawMaterialAutocomplete(wrapper) {
-        var input = wrapper.find('.raw_material_search');
-        var hidden = wrapper.find('.r_material_id');
-        var list = wrapper.find('.raw_material_search-list');
-        var selectedIndex = -1;
-
-        input.off('input.raw_material keydown.raw_material');
-
-        input.on('input.raw_material', function() {
-            var searchText = $(this).val().toLowerCase();
-            list.empty();
-            selectedIndex = -1;
-
-            if (searchText === '') {
-                list.hide();
-                return;
-            }
-
-            var matches = rawMaterials.filter(function(rawMaterial) {
-                return rawMaterial.name.toLowerCase().includes(searchText);
-            });
-
-            if (matches.length > 0) {
-                matches.forEach(function(rawMaterial, index) {
-                    var div = $('<div></div>').text(rawMaterial.name);
-                    if (index === 0) {
-                        div.addClass('autocomplete-active');
-                        selectedIndex = 0;
-                    }
-                    div.on('click', function() {
-                        input.val(rawMaterial.name);
-                        hidden.val(rawMaterial.id);
-                        // Auto-fill unit and cost from cump
-                        var row = wrapper.closest('tr');
-                        row.find('input[name="unit[]"]').val(rawMaterial.unit || '');
-                        var costInput = row.find('input[name="material_cost[]"]');
-                        if (!costInput.val() || costInput.val() == '0') {
-                            costInput.val(rawMaterial.cump || 0);
-                        }
-                        // Calculate total cost for this row
-                        calculateRowTotal(row, 'material');
-                        list.hide();
-                    });
-                    list.append(div);
-                });
-                list.show();
-                if (window.AcDropdown) AcDropdown.positionForList(list);
-            } else {
-                list.hide();
-            }
-        });
-
-        input.on('keydown.raw_material', function(e) {
-            var items = list.find('div');
-            if (e.keyCode === 40) {
-                e.preventDefault();
-                selectedIndex = (selectedIndex < items.length - 1) ? selectedIndex + 1 : selectedIndex;
-                items.removeClass('autocomplete-active').eq(selectedIndex).addClass('autocomplete-active');
-            } else if (e.keyCode === 38) {
-                e.preventDefault();
-                selectedIndex = (selectedIndex > 0) ? selectedIndex - 1 : 0;
-                items.removeClass('autocomplete-active').eq(selectedIndex).addClass('autocomplete-active');
-            } else if (e.keyCode === 13) {
-                e.preventDefault();
-                if (selectedIndex >= 0) {
-                    items.eq(selectedIndex).click();
-                }
-            }
-        });
-    }
-
-    $(document).on('click', function(e) {
-        if (!$(e.target).closest('.autocomplete-wrapper').length) {
-            $('.autocomplete-list').hide();
-        }
-    });
-
-    $(document).ready(function() {
-        function syncFinishedGoodsStoreUI() {
-            var type = $('#finished_goods_store_type').val();
-            if (type === 'SM') {
-                $('#fg_sm_store_col').show();
-                $('#fg_main_store_col').hide();
-                $('#finished_g_sm_store_id').prop('required', true);
-                $('#finished_g_store_id').prop('required', false);
-            } else {
-                $('#fg_sm_store_col').hide();
-                $('#fg_main_store_col').show();
-                $('#finished_g_sm_store_id').prop('required', false);
-                $('#finished_g_store_id').prop('required', true);
-            }
-        }
-
-        $('#finished_goods_store_type').on('change', syncFinishedGoodsStoreUI);
-        syncFinishedGoodsStoreUI();
-
-        $('.autocomplete-wrapper').each(function() {
-            if ($(this).find('.item_search').length) {
-                initializeItemAutocomplete($(this));
-            }
-            if ($(this).find('.raw_material_search').length) {
-                initializeRawMaterialAutocomplete($(this));
-            }
-        });
-        
-        // Load raw materials for existing finished goods on page load
-        recalculateAllRawMaterials();
-    });
-
-    // When store selection changes: clear selected items and rebuild raw materials
-    $('#finished_goods_store_type, #finished_g_store_id, #finished_g_sm_store_id').on('change', function () {
-        $('#finishedGoodsTable .item_id').val('');
-        $('#finishedGoodsTable .item_code').val('');
-        $('#finishedGoodsTable .item_search').val('');
-        recalculateAllRawMaterials();
-    });
-
-    var finishedGoodsCount = 0;
-    $("#add_finished").click(function(){
-        ++finishedGoodsCount;
-        var markup = "<tr>"+
-                     "<td>"+
-                        "<div class='autocomplete-wrapper'>"+
-                           "<input type='text' class='form-control item_search' placeholder='Type to search item...' autocomplete='off' required>"+
-                           "<input type='hidden' name='item_id[]' class='item_id'>"+
-                           "<input type='hidden' class='item_code' value=''>"+
-                           "<div class='autocomplete-list item_search-list'></div>"+
-                        "</div>"+
-                       "</td>"+
-                       "<td>"+
-                         "<input type='number' name='item_quantity[]' placeholder='Quantity' class='form-control' min='0' step='any' required/>"+
-                       "</td>"+
-                       "<td>"+
-                         "<input type='number' name='cost_price[]' placeholder='Cost Price' class='form-control' min='0' step='any'/>"+
-                       "</td>"+
-                       "<td>"+
-                         "<button type='button' class='btn btn-danger remove-tr'>@lang('messages.Delete')</button>"+
-                       "</td>"+
-                   "</tr>";
-        var newRow = $(markup);
-        $("#finishedGoodsTable").append(newRow);
-        initializeItemAutocomplete(newRow.find('.autocomplete-wrapper'));
-    });
-
-    // Add raw material row manually
-    var rawMaterialCount = 0;
-    $("#add_raw_material").click(function(){
-        ++rawMaterialCount;
-        var markup = "<tr>"+
-                     "<td>"+
-                        "<div class='autocomplete-wrapper'>"+
-                           "<input type='text' class='form-control raw_material_search' placeholder='Type to search raw material...' autocomplete='off' required>"+
-                           "<input type='hidden' name='r_material_id[]' class='r_material_id'>"+
-                           "<div class='autocomplete-list raw_material_search-list'></div>"+
-                        "</div>"+
-                       "</td>"+
-                       "<td>"+
-                         "<input type='number' name='material_quantity[]' placeholder='Quantity' class='form-control' min='0' step='any' required/>"+
-                       "</td>"+
-                       "<td>"+
-                         "<input type='text' name='unit[]' placeholder='Unit' class='form-control'/>"+
-                       "</td>"+
-                       "<td>"+
-                         "<input type='number' name='material_cost[]' placeholder='Cost' class='form-control' min='0' step='any' required/>"+
-                       "</td>"+
-                       "<td>"+
-                         "<button type='button' class='btn btn-danger btn-sm remove-tr'>@lang('messages.Delete')</button>"+
-                       "</td>"+
-                   "</tr>";
-        var newRow = $(markup);
-        $("#rawMaterialsTable tbody").append(newRow);
-        initializeRawMaterialAutocomplete(newRow.find('.autocomplete-wrapper'));
-    });
-
-    $(document).on('click', '.remove-tr', function(){  
-        $(this).parents('tr').remove();
-        calculateTotalCost();
-    });
-
-    // Backward-compatible hook (kept because some earlier code calls it).
-    // We now rebuild the raw materials deterministically for all selected items.
-    function loadRawMaterialsFromItem(itemCode, itemRow) {
-        recalculateAllRawMaterials();
-    }
-
-    // Rebuild raw materials from all selected finished goods
-    function recalculateAllRawMaterials() {
-        // r_material_id -> { quantity, raw_material_name, unit, raw_material_cump }
-        var materialsMap = {};
-
-        // Loop through finished goods rows
-        $('#finishedGoodsTable tr').each(function() {
-            // Skip header row
-            if ($(this).find('th').length > 0) {
-                return;
-            }
-
-            var itemId = $(this).find('.item_id').val();
-            var itemCode = $(this).find('.item_code').val();
-            var itemQuantity = parseFloat($(this).find('input[name="item_quantity[]"]').val() || 0);
-
-            // Include selected items even when qty is still 0/empty
-            if (itemId) {
-                if (itemCode) {
-                    var details = itemDetails.filter(function(detail) {
-                        var detailCode = String(detail.item_code || '').trim();
-                        var searchCode = String(itemCode || '').trim();
-                        return detailCode.toLowerCase() === searchCode.toLowerCase();
-                    });
-
-                    details.forEach(function(detail) {
-                        if (detail.r_material_id && detail.r_material_id > 0) {
-                            var rMaterialId = parseInt(detail.r_material_id);
-                            var requiredQuantity = itemQuantity * (parseFloat(detail.quantity) || 0);
-
-                            if (materialsMap[rMaterialId]) {
-                                materialsMap[rMaterialId].quantity += requiredQuantity;
-                            } else {
-                                materialsMap[rMaterialId] = {
-                                    quantity: requiredQuantity,
-                                    raw_material_name: detail.raw_material_name || '',
-                                    unit: detail.unit || '',
-                                    raw_material_cump: detail.raw_material_cump || 0
-                                };
-                            }
-                        }
-                    });
-                }
-            }
-        });
-
-        // Clear existing raw materials rows
-        $('#rawMaterialsTable tbody tr').each(function() {
-            // tbody shouldn't contain header, but keep it safe
-            if ($(this).find('th').length === 0) {
-                $(this).remove();
-            }
-        });
-
-        // Add all materials
-        for (var rMaterialId in materialsMap) {
-            if (materialsMap.hasOwnProperty(rMaterialId)) {
-                var material = materialsMap[rMaterialId];
-                var markup = "<tr>"+
-                             "<td>"+
-                                "<div class='autocomplete-wrapper'>"+
-                                   "<input type='text' class='form-control raw_material_search' value='" + (material.raw_material_name || '') + "' placeholder='Type to search raw material...' autocomplete='off' required>"+
-                                   "<input type='hidden' name='r_material_id[]' class='r_material_id' value='" + rMaterialId + "'>"+
-                                   "<div class='autocomplete-list raw_material_search-list'></div>"+
-                                "</div>"+
-                               "</td>"+
-                               "<td>"+
-                                 "<input type='number' name='material_quantity[]' value='" + material.quantity.toFixed(2) + "' placeholder='Quantity' class='form-control' min='0' step='any' required/>"+
-                               "</td>"+
-                               "<td>"+
-                                 "<input type='text' name='unit[]' value='" + (material.unit || '') + "' placeholder='Unit' class='form-control'/>"+
-                               "</td>"+
-                               "<td>"+
-                                 "<input type='number' name='material_cost[]' value='" + (material.raw_material_cump || 0) + "' placeholder='Cost' class='form-control' min='0' step='any' required/>"+
-                               "</td>"+
-                               "<td>"+
-                                 "<button type='button' class='btn btn-danger remove-tr'>@lang('messages.Delete')</button>"+
-                               "</td>"+
-                           "</tr>";
-                var newRow = $(markup);
-                $("#rawMaterialsTable tbody").append(newRow);
-                initializeRawMaterialAutocomplete(newRow.find('.autocomplete-wrapper'));
-            }
-        }
-
-        calculateTotalCost();
-    }
-
-    // Calculate total cost for a specific row
-    function calculateRowTotal(row, type) {
-        if (type === 'item') {
-            var qty = parseFloat(row.find('input[name="item_quantity[]"]').val() || 0);
-            var cost = parseFloat(row.find('input[name="cost_price[]"]').val() || 0);
-            // Recalculate all raw materials when item quantity changes
-            recalculateAllRawMaterials();
-        } else if (type === 'material') {
-            var qty = parseFloat(row.find('input[name="material_quantity[]"]').val() || 0);
-            var cost = parseFloat(row.find('input[name="material_cost[]"]').val() || 0);
-            // You can add a total column if needed
-        }
-        calculateTotalCost();
-    }
-
-    function calculateTotalCost() {
-        var laborCost = parseFloat($('#estimated_labor_cost').val() || 0);
-        var overheadCost = parseFloat($('#estimated_overhead_cost').val() || 0);
-        var materialCost = 0;
-        
-        $('input[name="material_quantity[]"]').each(function() {
-            var qty = parseFloat($(this).val() || 0);
-            var cost = parseFloat($(this).closest('tr').find('input[name="material_cost[]"]').val() || 0);
-            materialCost += qty * cost;
-        });
-        
-        var total = laborCost + materialCost + overheadCost;
-        $('#total_estimated_cost').val(total.toFixed(2));
-        
-        // Calculate total quantity of finished goods
-        var totalFinishedGoodsQuantity = 0;
-        $('#finishedGoodsTable tr').each(function() {
-            if ($(this).find('th').length > 0) {
-                return; // Skip header
-            }
-            var itemId = $(this).find('.item_id').val();
-            if (itemId) {
-                var qty = parseFloat($(this).find('input[name="item_quantity[]"]').val() || 0);
-                totalFinishedGoodsQuantity += qty;
-            }
-        });
-        
-        // Distribute total cost to finished goods proportionally
-        if (totalFinishedGoodsQuantity > 0 && total > 0) {
-            var costPerUnit = total / totalFinishedGoodsQuantity;
-            
-            $('#finishedGoodsTable tr').each(function() {
-                if ($(this).find('th').length > 0) {
-                    return; // Skip header
-                }
-                var itemId = $(this).find('.item_id').val();
-                if (itemId) {
-                    var qty = parseFloat($(this).find('input[name="item_quantity[]"]').val() || 0);
-                    if (qty > 0) {
-                        // Set cost_price = Total Estimated Cost (same for all finished goods)
-                        // Or distribute proportionally: cost_price = (total / totalQuantity) * itemQuantity
-                        // Based on user requirement: cost_price should equal Total Estimated Cost
-                        var costInput = $(this).find('input[name="cost_price[]"]');
-                        costInput.val(total.toFixed(2));
-                    }
-                }
-            });
-        }
-    }
-
-    // Calculate totals when inputs change
-    $(document).on('input', '#estimated_labor_cost, #estimated_overhead_cost', function() {
-        calculateTotalCost();
-    });
-
-    $(document).on('input', 'input[name="material_quantity[]"], input[name="material_cost[]"]', function() {
-        var row = $(this).closest('tr');
-        calculateRowTotal(row, 'material');
-    });
-
-    $(document).on('input', 'input[name="item_quantity[]"]', function() {
-        var row = $(this).closest('tr');
-        // Recalculate all raw materials when quantity changes
-        recalculateAllRawMaterials();
-        calculateRowTotal(row, 'item');
-    });
-
-    $(document).on('input', 'input[name="cost_price[]"]', function() {
-        var row = $(this).closest('tr');
-        calculateRowTotal(row, 'item');
-    });
-
-    $('#production_order_form').on('submit', function(e) {
-        if (!confirm({{ json_encode(__('messages.confirm_update_production_order')) }})) {
-            e.preventDefault();
-            return false;
-        }
-    });
-</script>
+@section('scripts')
+@php
+    $productionOrderConfirmMessage = __('messages.confirm_update_production_order');
+    $recalculateOnLoad = true;
+@endphp
+@include('backend.pages.production_order.partials.autocomplete_scripts')
 @endsection
 

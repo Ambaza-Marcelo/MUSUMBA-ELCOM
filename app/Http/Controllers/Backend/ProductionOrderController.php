@@ -46,7 +46,7 @@ class ProductionOrderController extends Controller
      */
     public function searchItems(Request $request)
     {
-        if (is_null($this->user) || !$this->user->can('production_order.create')) {
+        if (is_null($this->user) || (!$this->user->can('production_order.create') && !$this->user->can('production_order.edit'))) {
             abort(403, 'Sorry !! You are Unauthorized to search items !');
         }
 
@@ -93,9 +93,11 @@ class ProductionOrderController extends Controller
             ->get(['item_id', 'name', 'code', 'cump']);
 
         $results = $rows->map(function ($r) {
+            $label = trim(($r->code ?? '') . ' - ' . ($r->name ?? ''));
             return [
                 'id' => (int)$r->item_id,
-                'label' => trim(($r->code ?? '') . ' - ' . ($r->name ?? '')),
+                'label' => $label,
+                'text' => $label,
                 'code' => (string)($r->code ?? ''),
                 'cump' => (float)($r->cump ?? 0),
             ];

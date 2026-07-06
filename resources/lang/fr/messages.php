@@ -2845,6 +2845,7 @@ return[
 	'confirm_delete_production_order' => 'Supprimer cet ordre de production ?',
 	'confirm_update_production_order' => 'Mettre à jour cet ordre de production ?',
 	'confirm_create_production_order' => 'Créer cet ordre de production ?',
+	'production_order_select_fg_store_first' => 'Sélectionnez d\'abord un magasin produits finis',
 	'confirm_delete_requisition' => 'Supprimer cette réquisition ? Cette action est irréversible.',
 	'production_plan_details' => 'Détails du plan',
 	'stockin_approved_locked' => 'Ce stockin a été approuvé (statut = 4) et ne peut pas être modifié.',

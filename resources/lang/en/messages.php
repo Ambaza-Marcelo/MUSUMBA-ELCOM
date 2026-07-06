@@ -2830,6 +2830,7 @@ return [
 	'confirm_delete_production_order' => 'Delete this production order?',
 	'confirm_update_production_order' => 'Update this production order?',
 	'confirm_create_production_order' => 'Create this production order?',
+	'production_order_select_fg_store_first' => 'Please select a finished goods store first',
 	'confirm_delete_requisition' => 'Delete this requisition? This action cannot be undone.',
 	'production_plan_details' => 'Plan details',
 	'stockin_approved_locked' => 'This stock in has been approved (status = 4) and cannot be edited.',

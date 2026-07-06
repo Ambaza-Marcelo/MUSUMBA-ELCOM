@@ -70,6 +70,12 @@
             },
             onSelect: function (item) {
                 $codeHidden.val(item.code || '');
+                var $row = $wrapper.closest('tr');
+                var $qtyInput = $row.find('input[name="item_quantity[]"]');
+                var qty = parseFloat($qtyInput.val() || 0);
+                if (!$qtyInput.val() || isNaN(qty) || qty <= 0) {
+                    $qtyInput.val(1);
+                }
                 recalculateAllRawMaterials();
                 calculateTotalCost();
             }
