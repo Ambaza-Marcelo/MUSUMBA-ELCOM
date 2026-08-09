@@ -1,9 +1,23 @@
 <!-- header area start -->
 <div class="header-area">
     <div class="row align-items-center">
-        <!-- nav and search button -->
         <div class="col-md-6 col-sm-8 clearfix">
-         <h2 class="pull-left" style="color:green;"><marquee> @lang('messages.egotek_soft') <span style="color: pink;">| </span><strong style="color: black;">{{ Auth::guard('admin')->user()->name }}</strong></marquee></h2>
+            <div class="header-left-tools pull-left">
+                <button type="button" class="nav-btn" aria-label="@lang('messages.dashboard_toggle_menu')" title="@lang('messages.dashboard_toggle_menu')">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <img
+                    src="{{ asset('img/logo.jpeg') }}"
+                    alt="@lang('messages.musumba_elcom')"
+                    class="header-brand-logo"
+                >
+                <h2 class="header-plant-title">
+                    @lang('messages.musumba_elcom')
+                    <em>· @lang('messages.dashboard_plant_brand_tag')</em>
+                </h2>
+            </div>
         </div>
         <div class="col-md-6 col-sm-4 clearfix">
             <ul class="notification-area pull-right">
@@ -13,9 +27,8 @@
                     <select class="form-control changeLang">
                         <option value="fr" {{ session()->get('locale') == 'fr' ? 'selected' : '' }}>@lang('messages.french')</option>
                         <option value="en" {{ session()->get('locale') == 'en' ? 'selected' : '' }}>@lang('messages.english')</option>
-
                         <option value="ki" {{ session()->get('locale') == 'ki' ? 'selected' : '' }}>@lang('messages.kirundi')</option>
-                </select>
+                    </select>
                 </li>
                 <li class="dropdown">
                     <i class="ti-bell dropdown-toggle" data-toggle="dropdown">
@@ -32,17 +45,42 @@
                                 </div>
                             </a>
                         </div>
-                    </div> 
-
+                    </div>
                 </li>
             </ul>
         </div>
     </div>
 </div>
+<div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
 <script type="text/javascript">
-    var url = "{{ route('changeLang')}}";
-    $(".changeLang").change(function(){
-        window.location.href = url + "?lang=" + $(this).val();
-    });
+    (function () {
+        var url = "{{ route('changeLang') }}";
+        $(".changeLang").change(function () {
+            window.location.href = url + "?lang=" + $(this).val();
+        });
+
+        function syncBackdrop() {
+            var collapsed = $(".page-container").hasClass("sbar_collapsed");
+            var narrow = window.innerWidth <= 1364;
+            var $backdrop = $("#sidebarBackdrop");
+            if (narrow && !collapsed) {
+                $backdrop.addClass("is-visible").attr("aria-hidden", "false");
+            } else {
+                $backdrop.removeClass("is-visible").attr("aria-hidden", "true");
+            }
+        }
+
+        $(document).on("click", ".nav-btn", function () {
+            setTimeout(syncBackdrop, 10);
+        });
+
+        $("#sidebarBackdrop").on("click", function () {
+            $(".page-container").addClass("sbar_collapsed");
+            syncBackdrop();
+        });
+
+        $(window).on("resize", syncBackdrop);
+        $(function () { syncBackdrop(); });
+    })();
 </script>
 <!-- header area end -->

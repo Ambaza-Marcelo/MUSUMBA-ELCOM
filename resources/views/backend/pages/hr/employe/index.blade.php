@@ -2,7 +2,7 @@
 @extends('backend.layouts.master')
 
 @section('title')
-@lang('messages.Employés') - @lang('messages.admin_panel')
+@lang('Employés') - @lang('messages.admin_panel')
 @endsection
 
 @section('styles')
@@ -21,7 +21,7 @@
     <div class="row align-items-center">
         <div class="col-sm-6">
             <div class="breadcrumbs-area clearfix">
-                <h4 class="page-title pull-left">@lang('messages.Employés')</h4>
+                <h4 class="page-title pull-left">@lang('Employés')</h4>
                 <ul class="breadcrumbs pull-left">
                     <li><a href="{{ route('admin.dashboard') }}">@lang('messages.dashboard')</a></li>
                     <li><span>@lang('messages.list')</span></li>
@@ -40,12 +40,12 @@
         <div class="col-12 mt-5">
             <div class="card">
                 <div class="card-body">
-                    <h4 class="header-title float-left">@lang('messages.Employés')</h4>
+                    <h4 class="header-title float-left">Employés</h4>
                     <p class="float-right mb-2">
-                            <a class="btn btn-success text-white" href="{{ route('admin.hr-employes.create') }}"><i class="fa fa-plus-square" title="@lang('messages.Ajouter')" aria-hidden="false"></i></a>
+                            <a class="btn btn-success text-white" href="{{ route('admin.hr-employes.create') }}"><i class="fa fa-plus-square" title="Ajouter" aria-hidden="false"></i></a>
                     </p>
                     <p class="float-right mb-2">
-                            <a class="btn btn-success text-white" href="{{ route('admin.hr-employes.exportToExcel',$company_id) }}">@lang('messages.Exporter en Excel')</a>&nbsp;
+                            <a class="btn btn-success text-white" href="{{ route('admin.hr-employes.exportToExcel',$company_id) }}">Exporter en Excel</a>&nbsp;
                     </p>
                     <div class="clearfix"></div>
                     <div class="data-tables">
@@ -54,17 +54,17 @@
                             <thead class="bg-light text-capitalize">
                                 <tr>
                                     <th width="5%">#</th>
-                                    <th width="10%">@lang('messages.No Matricule')</th>
-                                    <th width="10%">@lang('messages.Nom')</th>
-                                    <th width="10%">@lang('messages.Prenom')</th>
-                                    <th width="10%">@lang('messages.Telephone')</th>
-                                    <th width="10%">@lang('messages.Grade')</th>
-                                    <th width="10%">@lang('messages.Departement')</th>
-                                    <th width="10%">@lang('messages.Service')</th>
-                                    <th width="10%">@lang('messages.Fonction')</th>
-                                    <th width="15%">@lang('messages.Compte Avance')</th>
-                                    <th width="15%">@lang('messages.Compte Sortie de fonds')</th>
-                                    <th width="15%">@lang('messages.Action')</th>
+                                    <th width="10%">No Matricule</th>
+                                    <th width="10%">Nom</th>
+                                    <th width="10%">Prenom</th>
+                                    <th width="10%">Telephone</th>
+                                    <th width="10%">Grade</th>
+                                    <th width="10%">Departement</th>
+                                    <th width="10%">Service</th>
+                                    <th width="10%">Fonction</th>
+                                    <th width="15%">Compte Avance</th>
+                                    <th width="15%">Compte Sortie de fonds</th>
+                                    <th width="15%">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -100,7 +100,7 @@
 
                                         @if (Auth::guard('admin')->user()->can('hr_employe.delete'))
                                             <a class="btn btn-danger text-white" href="{{ route('admin.hr-employes.destroy', $employe->id) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $employe->id }}').submit(); }">
+                                            onclick="event.preventDefault(); if(confirm('Are you sure you want to delete this item? This action is irreversible.')) { document.getElementById('delete-form-{{ $employe->id }}').submit(); }">
                                                 Supprimer
                                             </a>
 

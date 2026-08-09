@@ -16,7 +16,7 @@ return array(
     /*
      * Dejavu Sans font is missing glyphs for converted entities, turn it off if you need to show € and £.
      */
-    'convert_entities' => true,
+    'convert_entities' => false,
     'defines' => array(
         /**
          * The location of the DOMPDF font directory
@@ -43,16 +43,7 @@ return array(
          * Symbol, ZapfDingbats.
          */
         "font_dir" => base_path('vendor/dompdf/dompdf/lib/fonts'),
-
-        /**
-         * The location of the DOMPDF font cache directory
-         *
-         * This directory contains the cached font metrics for the fonts used by DOMPDF.
-         * This directory can be the same as DOMPDF_FONT_DIR
-         *
-         * Note: This directory must exist and be writable by the webserver process.
-         */
-        "font_cache" => storage_path('fonts'),
+        "font_cache" => base_path('vendor/dompdf/dompdf/lib/fonts'),
 
         /**
          * The location of a temporary directory.

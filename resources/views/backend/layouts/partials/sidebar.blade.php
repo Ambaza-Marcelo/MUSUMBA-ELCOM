@@ -4,8 +4,16 @@
  <div class="sidebar-menu">
     <div class="sidebar-header">
         <div class="logo">
-            <a href="{{ route('admin.dashboard') }}">
-                <h2 class="text-white">EGOTEK</h2> 
+            <a href="{{ route('admin.dashboard') }}" class="sidebar-brand" title="@lang('messages.musumba_elcom')">
+                <img
+                    src="{{ asset('img/logo.jpeg') }}"
+                    alt="@lang('messages.musumba_elcom')"
+                    class="sidebar-brand-logo"
+                >
+                <span class="sidebar-brand-text">
+                    <strong>@lang('messages.musumba_elcom')</strong>
+                    <span>@lang('messages.dashboard_plant_brand_tag')</span>
+                </span>
             </a>
         </div>
     </div>
@@ -15,15 +23,17 @@
                 <ul class="metismenu" id="menu">
 
                     @if ($usr->can('dashboard.view'))
-                    <li class="active">
-                        <a href="{{ route('admin.dashboard') }}" aria-expanded="true"><i class="ti-dashboard"></i><span>@lang('messages.dashboard')</span></a>
+                    <li class="{{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+                        <a href="{{ route('admin.dashboard') }}"><i class="ti-dashboard"></i><span>@lang('messages.dashboard')</span></a>
                     </li>
                     @endif
                     @if ($usr->can('material.view'))
-                    <li>
-                        <li class="active"><a href="#"><i class="fa fa-leaf"></i>&nbsp;@lang('messages.musumba_elcom')</a></li>
+                    <li class="mm-label">
+                        <span class="sidebar-section-label">
+                            <i class="fa fa-industry"></i>
+                            @lang('messages.dashboard_menu_modules')
+                        </span>
                     </li>
-                    <hr>
                     @endif
                     @if ($usr->can('raw_material.create') || $usr->can('raw_material.view') ||  $usr->can('raw_material.edit') ||  $usr->can('raw_material.delete') || $usr->can('client.view') || $usr->can('material.create') || $usr->can('material.view') ||  $usr->can('material.edit') ||  $usr->can('material.delete') ||  $usr->can('employe.create') || $usr->can('employe.view') ||  $usr->can('employe.edit') ||  $usr->can('employe.delete') || $usr->can('supplier.create') || $usr->can('supplier.view') ||  $usr->can('supplier.edit') ||  $usr->can('item.view'))
                     <li>

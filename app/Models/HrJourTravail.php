@@ -6,4 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 class HrJourTravail extends Model
 {
     //
+    protected $fillable = [
+        'name',
+        'created_by',
+    ];
 }

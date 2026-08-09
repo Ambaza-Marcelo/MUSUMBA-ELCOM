@@ -86,7 +86,7 @@
                                         $qty = is_numeric($detail->quantity ?? 0) ? (float)($detail->quantity ?? 0) : 0;
                                         $threshold = is_numeric($detail->threshold_quantity) ? (float) $detail->threshold_quantity : 0;
                                     @endphp
-                                    @if($threshold > @lang('messages.0 && $qty') <= $threshold)
+                                    @if($threshold > 0 && $qty <= $threshold)
                                     <td>{{ $qty }} <img src="{{ asset('img/warning.gif') }}" width="30" alt=""></td>
                                     @else
                                     <td>{{ $qty }}</td>

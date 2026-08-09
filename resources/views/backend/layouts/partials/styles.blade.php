@@ -1,4 +1,4 @@
-<link rel="shortcut icon" type="image/png" href="{{ asset('backend/assets/images/icon/favicon.ico') }}">
+<link rel="shortcut icon" type="image/jpeg" href="{{ asset('img/logo.jpeg') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/bootstrap.min.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/font-awesome.min.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/themify-icons.css') }}">
@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="{{ asset('backend/assets/css/typography.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/default-css.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/styles.css') }}">
+<link rel="stylesheet" href="{{ asset('backend/assets/css/plant-sidebar.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/responsive.css') }}">
 <!-- modernizr css -->
 <script src="{{ asset('backend/assets/js/vendor/modernizr-2.8.3.min.js') }}"></script>

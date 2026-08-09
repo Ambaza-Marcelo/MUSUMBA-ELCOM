@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="x-ua-compatible" content="ie=edge">
-    <title>@yield('title', 'EGOTEK Role Admin')</title>
+    <title>@yield('title', __('messages.musumba_elcom') . ' — ' . __('messages.admin_panel'))</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @include('backend.layouts.partials.styles')

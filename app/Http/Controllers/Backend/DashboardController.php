@@ -194,6 +194,14 @@ class DashboardController extends Controller
             'production_orders' => ProductionOrder::whereIn('status', [0, 1, 2])->count(),
         ];
 
+        $productionKpis = [
+            'plans_year' => ProductionPlan::whereYear('production_plan_date', $selectedExercise)->count(),
+            'orders_year' => ProductionOrder::whereYear('production_date', $selectedExercise)->count(),
+            'orders_approved_year' => ProductionOrder::whereYear('production_date', $selectedExercise)->where('status', '4')->count(),
+            'orders_in_progress' => ProductionOrder::whereIn('status', [0, 1, 2])->count(),
+            'pipeline_pending' => array_sum($productionProcess),
+        ];
+
         $salesProcess = [
             'proforma_invoices' => ProformaInvoice::whereIn('etat', ['0', '1', '2'])->count(),
             'sales_orders' => SalesOrder::whereIn('etat', ['0', '1', '2'])->count(),
@@ -220,6 +228,7 @@ class DashboardController extends Controller
                 'paymentProcess',
                 'awaitingPayment',
                 'productionProcess',
+                'productionKpis',
                 'salesProcess'
             ));
     }

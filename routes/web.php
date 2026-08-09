@@ -1110,6 +1110,12 @@ Route::group(['prefix' => 'admin'], function () {
     Route::delete('hr-filieres/destroy/{id}', 'Backend\Hr\FiliereController@destroy')->name('admin.hr-filieres.destroy');
 
     //hr-type-absences routes
+    Route::post('hr-type-absences/store', 'Backend\Hr\TypeAbsenceController@store')->name('admin.hr-type-absences.store');
+    Route::get('hr-type-absences/edit/{id}', 'Backend\Hr\TypeAbsenceController@edit')->name('admin.hr-type-absences.edit');
+    Route::put('hr-type-absences/update/{id}', 'Backend\Hr\TypeAbsenceController@update')->name('admin.hr-type-absences.update');
+    Route::delete('hr-type-absences/destroy/{id}', 'Backend\Hr\TypeAbsenceController@destroy')->name('admin.hr-type-absences.destroy');
+
+    //hr-absences routes
     Route::get('hr-absences/index', 'Backend\Hr\AbsenceController@index')->name('admin.hr-absences.index');
     Route::get('hr-first-in-last-out/index', 'Backend\Hr\AbsenceController@firstInLastOut')->name('admin.hr-first-in-last-out.index');
 
@@ -1169,6 +1175,12 @@ Route::group(['prefix' => 'admin'], function () {
     Route::put('hr-take-conge-paye/approuver/{id}', 'Backend\Hr\TakeCongePayeController@approuverConge')->name('admin.hr-take-conge-paye.approuver');
     Route::put('hr-take-conge-paye/rejeter/{id}', 'Backend\Hr\TakeCongePayeController@rejeterConge')->name('admin.hr-take-conge-paye.rejeter');
     Route::put('hr-take-conge-paye/annuler/{id}', 'Backend\Hr\TakeCongePayeController@annulerConge')->name('admin.hr-take-conge-paye.annuler');
+    Route::get('hr-take-conge-payes/export-excel/{company_id}', 'Backend\Hr\TakeCongePayeController@exportToExcel')->name('admin.hr-take-conge-payes.export-excel');
+    Route::get('hr-take-conge-payes/export-pdf/{company_id}', 'Backend\Hr\TakeCongePayeController@exportToPdf')->name('admin.hr-take-conge-payes.export-pdf');
+
+    //hr-journal-conge-paye routes
+    Route::get('hr-journal-conge-paye/edit/{id}', 'Backend\Hr\JournalCongePayeController@edit')->name('admin.hr-journal-conge-paye.edit');
+    Route::put('hr-journal-conge-paye/update/{id}', 'Backend\Hr\JournalCongePayeController@update')->name('admin.hr-journal-conge-paye.update');
 
     //hr-loans routes
     Route::get('hr-loans/index', 'Backend\Hr\LoanController@index')->name('admin.hr-loans.index');
@@ -1182,6 +1194,9 @@ Route::group(['prefix' => 'admin'], function () {
     Route::post('hr-loans/validate/{id}', 'Backend\Hr\LoanController@validateLoan')->name('admin.hr-loans.validate');
     Route::post('hr-loans/confirm/{id}', 'Backend\Hr\LoanController@confirm')->name('admin.hr-loans.confirm');
     Route::post('hr-loans/approve/{id}', 'Backend\Hr\LoanController@approve')->name('admin.hr-loans.approve');
+    Route::post('hr-loans/mark-first-tranche/{id}', 'Backend\Hr\LoanController@markFirstTranchePaid')->name('admin.hr-loans.mark-first-tranche');
+    Route::post('hr-loans/mark-second-tranche/{id}', 'Backend\Hr\LoanController@markSecondTranchePaid')->name('admin.hr-loans.mark-second-tranche');
+    Route::post('hr-loans/mark-all-tranches/{id}', 'Backend\Hr\LoanController@markAllTranchesPaid')->name('admin.hr-loans.mark-all-tranches');
 
     //hr-cotations routes
     Route::get('hr-cotations/index', 'Backend\Hr\CotationController@index')->name('admin.hr-cotations.index');
@@ -1236,6 +1251,7 @@ Route::group(['prefix' => 'admin'], function () {
     Route::get('hr-journal-paie/select-by-company/{code}', 'Backend\Hr\JournalPaieController@selectByCompany')->name('admin.hr-journal-paie.select-by-company');
     Route::get('hr-journal-paies/index', 'Backend\Hr\JournalPaieController@index')->name('admin.hr-journal-paies.index');
     Route::get('hr-journal-paies/export-to-excel', 'Backend\Hr\JournalPaieController@exportToExcel')->name('admin.hr-journal-paies.export-to-excel');
+    Route::get('hr-journal-paies/export-to-pdf/{code}/{company_id?}', 'Backend\Hr\JournalPaieController@exportToPdf')->name('admin.hr-journal-paies.export-to-pdf');
     Route::get('hr-journal-paies/create', 'Backend\Hr\JournalPaieController@create')->name('admin.hr-journal-paies.create');
     Route::post('hr-journal-paies/store', 'Backend\Hr\JournalPaieController@store')->name('admin.hr-journal-paies.store');
     Route::get('hr-journal-paies/edit/{id}', 'Backend\Hr\JournalPaieController@edit')->name('admin.hr-journal-paies.edit');
@@ -1261,6 +1277,86 @@ Route::group(['prefix' => 'admin'], function () {
     Route::get('hr-journal-conges/edit/{id}', 'Backend\Hr\JournalCongeController@edit')->name('admin.hr-journal-conges.edit');
     Route::put('hr-journal-conges/update/{id}', 'Backend\Hr\JournalCongeController@update')->name('admin.hr-journal-conges.update');
     Route::delete('hr-journal-conges/destroy/{id}', 'Backend\Hr\JournalCongeController@destroy')->name('admin.hr-journal-conges.destroy');
+
+    //hr-type-indemnites routes
+    Route::get('hr-type-indemnites/index', 'Backend\Hr\TypeIndemniteController@index')->name('admin.hr-type-indemnites.index');
+    Route::get('hr-type-indemnites/create', 'Backend\Hr\TypeIndemniteController@create')->name('admin.hr-type-indemnites.create');
+    Route::post('hr-type-indemnites/store', 'Backend\Hr\TypeIndemniteController@store')->name('admin.hr-type-indemnites.store');
+    Route::get('hr-type-indemnites/edit/{id}', 'Backend\Hr\TypeIndemniteController@edit')->name('admin.hr-type-indemnites.edit');
+    Route::put('hr-type-indemnites/update/{id}', 'Backend\Hr\TypeIndemniteController@update')->name('admin.hr-type-indemnites.update');
+    Route::delete('hr-type-indemnites/destroy/{id}', 'Backend\Hr\TypeIndemniteController@destroy')->name('admin.hr-type-indemnites.destroy');
+
+    //hr-type-cotisations routes
+    Route::get('hr-type-cotisations/index', 'Backend\Hr\TypeCotisationController@index')->name('admin.hr-type-cotisations.index');
+    Route::get('hr-type-cotisations/create', 'Backend\Hr\TypeCotisationController@create')->name('admin.hr-type-cotisations.create');
+    Route::post('hr-type-cotisations/store', 'Backend\Hr\TypeCotisationController@store')->name('admin.hr-type-cotisations.store');
+    Route::get('hr-type-cotisations/edit/{id}', 'Backend\Hr\TypeCotisationController@edit')->name('admin.hr-type-cotisations.edit');
+    Route::put('hr-type-cotisations/update/{id}', 'Backend\Hr\TypeCotisationController@update')->name('admin.hr-type-cotisations.update');
+    Route::delete('hr-type-cotisations/destroy/{id}', 'Backend\Hr\TypeCotisationController@destroy')->name('admin.hr-type-cotisations.destroy');
+
+    //hr-type-primes routes
+    Route::get('hr-type-primes/index', 'Backend\Hr\TypePrimeController@index')->name('admin.hr-type-primes.index');
+    Route::get('hr-type-primes/create', 'Backend\Hr\TypePrimeController@create')->name('admin.hr-type-primes.create');
+    Route::post('hr-type-primes/store', 'Backend\Hr\TypePrimeController@store')->name('admin.hr-type-primes.store');
+    Route::get('hr-type-primes/edit/{id}', 'Backend\Hr\TypePrimeController@edit')->name('admin.hr-type-primes.edit');
+    Route::put('hr-type-primes/update/{id}', 'Backend\Hr\TypePrimeController@update')->name('admin.hr-type-primes.update');
+    Route::delete('hr-type-primes/destroy/{id}', 'Backend\Hr\TypePrimeController@destroy')->name('admin.hr-type-primes.destroy');
+
+    //hr-groupe-indemnites routes
+    Route::get('hr-groupe-indemnites/index', 'Backend\Hr\GroupeIndemniteController@index')->name('admin.hr-groupe-indemnites.index');
+    Route::get('hr-groupe-indemnites/create', 'Backend\Hr\GroupeIndemniteController@create')->name('admin.hr-groupe-indemnites.create');
+    Route::post('hr-groupe-indemnites/store', 'Backend\Hr\GroupeIndemniteController@store')->name('admin.hr-groupe-indemnites.store');
+    Route::get('hr-groupe-indemnites/edit/{id}', 'Backend\Hr\GroupeIndemniteController@edit')->name('admin.hr-groupe-indemnites.edit');
+    Route::put('hr-groupe-indemnites/update/{id}', 'Backend\Hr\GroupeIndemniteController@update')->name('admin.hr-groupe-indemnites.update');
+    Route::delete('hr-groupe-indemnites/destroy/{id}', 'Backend\Hr\GroupeIndemniteController@destroy')->name('admin.hr-groupe-indemnites.destroy');
+
+    //hr-groupe-impots routes
+    Route::get('hr-groupe-impots/index', 'Backend\Hr\GroupeImpotController@index')->name('admin.hr-groupe-impots.index');
+    Route::get('hr-groupe-impots/create', 'Backend\Hr\GroupeImpotController@create')->name('admin.hr-groupe-impots.create');
+    Route::post('hr-groupe-impots/store', 'Backend\Hr\GroupeImpotController@store')->name('admin.hr-groupe-impots.store');
+    Route::get('hr-groupe-impots/edit/{id}', 'Backend\Hr\GroupeImpotController@edit')->name('admin.hr-groupe-impots.edit');
+    Route::put('hr-groupe-impots/update/{id}', 'Backend\Hr\GroupeImpotController@update')->name('admin.hr-groupe-impots.update');
+    Route::delete('hr-groupe-impots/destroy/{id}', 'Backend\Hr\GroupeImpotController@destroy')->name('admin.hr-groupe-impots.destroy');
+
+    //hr-groupe-cotisations routes
+    Route::get('hr-groupe-cotisations/index', 'Backend\Hr\GroupeCotisationController@index')->name('admin.hr-groupe-cotisations.index');
+    Route::get('hr-groupe-cotisations/create', 'Backend\Hr\GroupeCotisationController@create')->name('admin.hr-groupe-cotisations.create');
+    Route::post('hr-groupe-cotisations/store', 'Backend\Hr\GroupeCotisationController@store')->name('admin.hr-groupe-cotisations.store');
+    Route::get('hr-groupe-cotisations/edit/{id}', 'Backend\Hr\GroupeCotisationController@edit')->name('admin.hr-groupe-cotisations.edit');
+    Route::put('hr-groupe-cotisations/update/{id}', 'Backend\Hr\GroupeCotisationController@update')->name('admin.hr-groupe-cotisations.update');
+    Route::delete('hr-groupe-cotisations/destroy/{id}', 'Backend\Hr\GroupeCotisationController@destroy')->name('admin.hr-groupe-cotisations.destroy');
+
+    //hr-indemnites routes
+    Route::get('hr-indemnites/index', 'Backend\Hr\IndemniteController@index')->name('admin.hr-indemnites.index');
+    Route::get('hr-indemnites/create', 'Backend\Hr\IndemniteController@create')->name('admin.hr-indemnites.create');
+    Route::post('hr-indemnites/store', 'Backend\Hr\IndemniteController@store')->name('admin.hr-indemnites.store');
+    Route::get('hr-indemnites/edit/{code}', 'Backend\Hr\IndemniteController@edit')->name('admin.hr-indemnites.edit');
+    Route::put('hr-indemnites/update/{code}', 'Backend\Hr\IndemniteController@update')->name('admin.hr-indemnites.update');
+    Route::delete('hr-indemnites/destroy/{id}', 'Backend\Hr\IndemniteController@destroy')->name('admin.hr-indemnites.destroy');
+
+    //hr-impots routes
+    Route::get('hr-impots/index', 'Backend\Hr\ImpotController@index')->name('admin.hr-impots.index');
+    Route::get('hr-impots/create', 'Backend\Hr\ImpotController@create')->name('admin.hr-impots.create');
+    Route::post('hr-impots/store', 'Backend\Hr\ImpotController@store')->name('admin.hr-impots.store');
+    Route::get('hr-impots/edit/{id}', 'Backend\Hr\ImpotController@edit')->name('admin.hr-impots.edit');
+    Route::put('hr-impots/update/{id}', 'Backend\Hr\ImpotController@update')->name('admin.hr-impots.update');
+    Route::delete('hr-impots/destroy/{id}', 'Backend\Hr\ImpotController@destroy')->name('admin.hr-impots.destroy');
+
+    //hr-primes routes
+    Route::get('hr-primes/index', 'Backend\Hr\PrimeController@index')->name('admin.hr-primes.index');
+    Route::get('hr-primes/create', 'Backend\Hr\PrimeController@create')->name('admin.hr-primes.create');
+    Route::post('hr-primes/store', 'Backend\Hr\PrimeController@store')->name('admin.hr-primes.store');
+    Route::get('hr-primes/edit/{id}', 'Backend\Hr\PrimeController@edit')->name('admin.hr-primes.edit');
+    Route::put('hr-primes/update/{id}', 'Backend\Hr\PrimeController@update')->name('admin.hr-primes.update');
+    Route::delete('hr-primes/destroy/{id}', 'Backend\Hr\PrimeController@destroy')->name('admin.hr-primes.destroy');
+
+    //hr-cotisation routes (payroll cotisation config, distinct from hr-cotations note/evaluation)
+    Route::get('hr-cotisation/index', 'Backend\Hr\CotisationController@index')->name('admin.hr-cotisation.index');
+    Route::get('hr-cotisation/create', 'Backend\Hr\CotisationController@create')->name('admin.hr-cotisation.create');
+    Route::post('hr-cotisation/store', 'Backend\Hr\CotisationController@store')->name('admin.hr-cotisation.store');
+    Route::get('hr-cotisation/edit/{code}', 'Backend\Hr\CotisationController@edit')->name('admin.hr-cotisation.edit');
+    Route::put('hr-cotisation/update/{code}', 'Backend\Hr\CotisationController@update')->name('admin.hr-cotisation.update');
+    Route::delete('hr-cotisation/destroy/{id}', 'Backend\Hr\CotisationController@destroy')->name('admin.hr-cotisation.destroy');
 
     Route::get('hr-choose-report/index', 'Backend\Hr\ReportController@choose')->name('admin.hr-choose-report.choose');
 

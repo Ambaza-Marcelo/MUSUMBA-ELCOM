@@ -2,7 +2,7 @@
 @extends('backend.layouts.master')
 
 @section('title')
-@lang('messages.Filière') - @lang('messages.admin_panel')
+@lang('Filière') - @lang('messages.admin_panel')
 @endsection
 
 @section('styles')
@@ -21,7 +21,7 @@
     <div class="row align-items-center">
         <div class="col-sm-6">
             <div class="breadcrumbs-area clearfix">
-                <h4 class="page-title pull-left">@lang('messages.Filière')</h4>
+                <h4 class="page-title pull-left">@lang('Filière')</h4>
                 <ul class="breadcrumbs pull-left">
                     <li><a href="{{ route('admin.dashboard') }}">@lang('messages.dashboard')</a></li>
                     <li><span>@lang('messages.list')</span></li>
@@ -41,7 +41,7 @@
         <div class="col-12 mt-5">
             <div class="card">
                 <div class="card-body">
-                    <h4 class="header-title float-left">@lang('messages.Filière')</h4>
+                    <h4 class="header-title float-left">Filière</h4>
                     @if (Auth::guard('admin')->user()->can('hr_filiere.create'))
                     <p class="float-right mb-2">
                             <a class="btn btn-primary text-white" href="{{ route('admin.hr-filieres.create') }}">@lang('messages.new')</a>
@@ -54,8 +54,8 @@
                             <thead class="bg-light text-capitalize">
                                 <tr>
                                     <th width="5%">#</th>
-                                    <th width="10%">@lang('messages.Nom Filière')</th>
-                                    <th width="15%">@lang('messages.Action')</th>
+                                    <th width="10%">Nom Filière</th>
+                                    <th width="15%">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -70,7 +70,7 @@
 
                                         @if (Auth::guard('admin')->user()->can('hr_filiere.edit'))
                                             <a class="btn btn-danger text-white" href="{{ route('admin.hr-filieres.destroy', $filiere->id) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $filiere->id }}').submit(); }">
+                                            onclick="event.preventDefault(); if(confirm('Are you sure you want to delete this item? This action is irreversible.')) { document.getElementById('delete-form-{{ $filiere->id }}').submit(); }">
                                                 Supprimer
                                             </a>
 

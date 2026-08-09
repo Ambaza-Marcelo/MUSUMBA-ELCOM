@@ -530,7 +530,7 @@
                                 <div class="col-md-12">
                                     <div class="card mb-3">
                                         <div class="card-header bg-secondary text-white">
-                                            <h5 class="mb-0">@lang('messages.@lang('messages.full_details') de tous les Articles')</h5>
+                                            <h5 class="mb-0">@lang('messages.Détails Complets de tous les Articles')</h5>
                                         </div>
                                         <div class="card-body">
                                             @foreach($delivery_note->details as $index => $detail)
@@ -666,7 +666,7 @@
                             <div class="col-md-12">
                                 <div class="card mb-3">
                                     <div class="card-header bg-secondary text-white">
-                                        <h5 class="mb-0">@lang('messages.@lang('messages.status_and_history')')</h5>
+                                        <h5 class="mb-0">@lang('messages.status_and_history')</h5>
                                     </div>
                                     <div class="card-body">
                                         <table class="table table-bordered">
