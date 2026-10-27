@@ -52,12 +52,12 @@ class MaterialBigReportController extends Controller
 
         $query = MaterialBigReport::with('material')
             ->select(DB::raw('id,created_at,material_id,code_store,quantity_stock_initial,value_stock_initial,quantity_stockin,value_stockin,quantity_stockout,value_stockout,quantity_stock_final,value_stock_final,cump,type_transaction,document_no,description'))
-            ->groupBy('id', 'created_at', 'material_id', 'code_store', 'quantity_stock_initial', 'value_stock_initial', 'quantity_stockin', 'value_stockin', 'quantity_stockout', 'value_stockout', 'quantity_stock_final', 'value_stock_final', 'cump', 'type_transaction', 'document_no', 'description')
-            ->orderBy('id', 'desc');
+            ->groupBy('id', 'created_at', 'material_id', 'code_store', 'quantity_stock_initial', 'value_stock_initial', 'quantity_stockin', 'value_stockin', 'quantity_stockout', 'value_stockout', 'quantity_stock_final', 'value_stock_final', 'cump', 'type_transaction', 'document_no', 'description');
 
         StockReportFilter::apply($query, $request, $filterConfig);
+        $this->orderStockReportChronologically($query, 'desc');
 
-        $datas = $this->normalizeStockReportRows($query->get());
+        $datas = $this->normalizeStockReportRows($query->get(), 'desc');
 
         return view('backend.pages.material_big_store_report.index', array_merge(
             $this->stockReportViewData($request, $stores),
@@ -85,11 +85,11 @@ class MaterialBigReportController extends Controller
 
         $query = MaterialBigReport::with('material')
             ->select(DB::raw('id,created_at,material_id,code_store,quantity_stock_initial,quantity_stockin,quantity_stockout,quantity_stock_final,cump,type_transaction,document_no,description'))
-            ->groupBy('id', 'created_at', 'material_id', 'code_store', 'quantity_stock_initial', 'quantity_stockin', 'quantity_stockout', 'quantity_stock_final', 'cump', 'type_transaction', 'document_no', 'description')
-            ->orderBy('id', 'asc');
+            ->groupBy('id', 'created_at', 'material_id', 'code_store', 'quantity_stock_initial', 'quantity_stockin', 'quantity_stockout', 'quantity_stock_final', 'cump', 'type_transaction', 'document_no', 'description');
 
         StockReportFilter::apply($query, $request, $this->stockReportFilterConfig());
-        $datas = $this->normalizeStockReportRows($query->get());
+        $this->orderStockReportChronologically($query, 'asc');
+        $datas = $this->normalizeStockReportRows($query->get(), 'asc');
 
         $setting = DB::table('settings')->orderBy('created_at', 'desc')->first();
         $dateTime = str_replace([' ', ':'], '_', Carbon::now()->toDateTimeString());

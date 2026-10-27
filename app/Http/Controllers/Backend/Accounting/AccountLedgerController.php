@@ -40,26 +40,65 @@ class AccountLedgerController extends Controller
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{parentAccountIds: array<int, int>, accountIds: array<int, int>, fiscalYear: ?string, dateDebut: ?string, dateFin: ?string, mode: string, consolidateByParent: bool}
      */
-    private function buildBalanceReport(Request $request): array
+    private function resolveBalanceFilters(Request $request): array
     {
-        $fiscalYear = $request->input('fiscal_year');
         $mode = (string) $request->input('ledger_account_mode', 'all');
-
         $parentAccountIds = $this->normalizeRequestIds($request->input('parent_account_ids', []));
         $accountIds = $this->normalizeRequestIds($request->input('account_ids', []));
+        $consolidateByParent = false;
 
         if ($mode === 'all') {
             $parentAccountIds = [];
             $accountIds = [];
+        } elseif ($mode === 'parent') {
+            $accountIds = [];
+            $consolidateByParent = true;
+        } elseif ($mode === 'parent_children') {
+            // Parents sélectionnés → détail de tous leurs comptes enfants
+            $accountIds = [];
+            $consolidateByParent = false;
+        } elseif ($mode === 'child') {
+            $parentAccountIds = [];
         }
 
-        return BalanceReportBuilder::build($parentAccountIds, $fiscalYear, $accountIds);
+        $dateDebut = $request->input('date_debut');
+        $dateFin = $request->input('date_fin');
+        $fiscalYear = $request->input('fiscal_year');
+
+        return [
+            'parentAccountIds' => $parentAccountIds,
+            'accountIds' => $accountIds,
+            'fiscalYear' => $fiscalYear !== null && $fiscalYear !== '' ? (string) $fiscalYear : null,
+            'dateDebut' => $dateDebut !== null && $dateDebut !== '' ? (string) $dateDebut : null,
+            'dateFin' => $dateFin !== null && $dateFin !== '' ? (string) $dateFin : null,
+            'mode' => $mode,
+            'consolidateByParent' => $consolidateByParent,
+        ];
     }
 
     /**
-     * Display a listing of the resource.
+     * @return array<string, mixed>
+     */
+    private function buildBalanceReport(Request $request): array
+    {
+        $filters = $this->resolveBalanceFilters($request);
+
+        return BalanceReportBuilder::build(
+            $filters['parentAccountIds'],
+            $filters['fiscalYear'],
+            $filters['accountIds'],
+            $filters['dateDebut'],
+            $filters['dateFin'],
+            $filters['mode'] === 'parent'
+                ? true
+                : ($filters['mode'] === 'parent_children' ? false : null)
+        );
+    }
+
+    /**
+     * Affiche la balance (écran) avec filtres période / comptes.
      */
     public function balance(Request $request)
     {
@@ -67,8 +106,8 @@ class AccountLedgerController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to view any balance !');
         }
 
-        // Liste toujours affichée : année fiscale en cours, tous les comptes avec mouvements.
-        $report = BalanceReportBuilder::build(null, null);
+        $filters = $this->resolveBalanceFilters($request);
+        $report = $this->buildBalanceReport($request);
 
         $accountsData = $report['accountsData'];
         $grandTotals = $report['grandTotals'];
@@ -77,6 +116,11 @@ class AccountLedgerController extends Controller
         $periodStartFormatted = $report['periodStartFormatted'];
         $periodEndFormatted = $report['periodEndFormatted'];
         $filterLabel = $report['filterLabel'];
+        $dateDebut = $report['dateDebut'] ?? null;
+        $dateFin = $report['dateFin'] ?? null;
+        $ledgerAccountMode = $filters['mode'];
+        $selectedParentAccountIds = $filters['parentAccountIds'];
+        $selectedAccountIds = $filters['accountIds'];
 
         $reportGeneratedAt = now()->format('d/m/Y H:i');
         $companyName = config('app.name', 'Entreprise');
@@ -90,7 +134,12 @@ class AccountLedgerController extends Controller
             'fiscalYear',
             'periodStartFormatted',
             'periodEndFormatted',
-            'filterLabel'
+            'filterLabel',
+            'dateDebut',
+            'dateFin',
+            'ledgerAccountMode',
+            'selectedParentAccountIds',
+            'selectedAccountIds'
         ));
     }
 
@@ -149,20 +198,23 @@ class AccountLedgerController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to export balance !');
         }
 
+        $filters = $this->resolveBalanceFilters($request);
         $report = $this->buildBalanceReport($request);
         $fiscalYear = $report['fiscalYear'];
-        $parentAccountIds = $this->normalizeRequestIds($request->input('parent_account_ids', []));
-        $accountIds = $this->normalizeRequestIds($request->input('account_ids', []));
-        if ((string) $request->input('ledger_account_mode', 'all') === 'all') {
-            $parentAccountIds = [];
-            $accountIds = [];
-        }
-
-        $filterSlug = str_replace([' ', ';', '(', ')'], ['_', '-', '', ''], $report['filterLabel']);
+        $fileName = 'BALANCE_COMPTES_' . $fiscalYear . '_' . now()->format('Ymd_His') . '.xlsx';
 
         return Excel::download(
-            new BalanceExport($parentAccountIds, (string) $fiscalYear, $accountIds),
-            'BALANCE_COMPTES_' . $filterSlug . '_' . $fiscalYear . '.xlsx'
+            new BalanceExport(
+                $filters['parentAccountIds'],
+                (string) $fiscalYear,
+                $filters['accountIds'],
+                $filters['dateDebut'],
+                $filters['dateFin'],
+                $filters['mode'] === 'parent'
+                    ? true
+                    : ($filters['mode'] === 'parent_children' ? false : null)
+            ),
+            $fileName
         );
     }
 }

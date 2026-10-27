@@ -430,46 +430,8 @@ class ProformaInvoiceController extends Controller
 
     public function destroy($proforma_number)
     {
-        if (is_null($this->user) || !$this->user->can('proforma_invoice.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any proforma invoice !');
-        }
-
-        try {
-            $proforma_invoice = ProformaInvoice::where('proforma_number', $proforma_number)->firstOrFail();
-            
-            // Prevent deletion if flag1=1 (means invoice is validated with etat=1 or 2)
-            if ($proforma_invoice->flag1 == '1') {
-                // Check if there's a delivery note with flag1=1 and a validated invoice
-                $delivery_note = DeliveryNote::where('document_no', $proforma_number)
-                    ->where('flag1', '1')
-                    ->first();
-                
-                if ($delivery_note) {
-                    $invoice = Invoice::where('document_no', $delivery_note->delivery_number)
-                        ->whereIn('etat', ['1', '2'])
-                        ->first();
-                    if ($invoice) {
-                        session()->flash('error', 'Cette facture proforma ne peut pas être supprimée car une facture validée (état ' . $invoice->etat . ') existe déjà.');
-                        return redirect()->route('admin.proforma-invoice.index');
-                    }
-                }
-            }
-
-            DB::beginTransaction();
-            
-            // Delete details first
-            ProformaInvoiceDetail::where('proforma_number', $proforma_number)->delete();
-            
-            // Delete main invoice
-            $proforma_invoice->delete();
-
-            DB::commit();
-            session()->flash('success', 'La facture proforma est supprimée avec succès!!');
-        } catch (\Exception $e) {
-            DB::rollback();
-            session()->flash('error', __('messages.error_delete') . $e->getMessage());
-        }
-
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
         return redirect()->route('admin.proforma-invoice.index');
     }
 

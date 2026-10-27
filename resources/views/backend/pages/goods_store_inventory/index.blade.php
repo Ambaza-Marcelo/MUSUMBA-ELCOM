@@ -84,17 +84,6 @@
                                             <a class="btn btn-success text-white btn-sm" href="{{ route('admin.goods-store-inventory.edit', $inventory->inventory_no) }}">@lang('messages.edit')</a>
                                         @endif
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('material_big_inventory.delete'))
-                                        @if($inventory->status != 2)
-                                            <a class="btn btn-danger text-white btn-sm" href="{{ route('admin.goods-store-inventory.destroy', $inventory->inventory_no) }}"
-                                            onclick="event.preventDefault(); if(confirm('Êtes-vous sûr de vouloir supprimer cet inventaire ?')) { document.getElementById('delete-form-{{ $inventory->inventory_no }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-                                            <form id="delete-form-{{ $inventory->inventory_no }}" action="{{ route('admin.goods-store-inventory.destroy', $inventory->inventory_no) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                         @endif
                                         @if (Auth::guard('admin')->user()->can('material_big_inventory.edit'))
                                         @if($inventory->status != 2)

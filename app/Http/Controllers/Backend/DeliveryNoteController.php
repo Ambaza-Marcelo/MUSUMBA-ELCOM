@@ -517,39 +517,8 @@ class DeliveryNoteController extends Controller
 
     public function destroy($delivery_number)
     {
-        if (is_null($this->user) || !$this->user->can('delivery_note.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any delivery note !');
-        }
-
-        try {
-            $delivery_note = DeliveryNote::where('delivery_number', $delivery_number)->firstOrFail();
-            
-            // Prevent deletion if flag1=1 (means invoice is validated with etat=1 or 2)
-            if ($delivery_note->flag1 == '1') {
-                $invoice = Invoice::where('document_no', $delivery_number)
-                    ->whereIn('etat', ['1', '2'])
-                    ->first();
-                if ($invoice) {
-                    session()->flash('error', 'Ce bon de livraison ne peut pas être supprimé car une facture validée (état ' . $invoice->etat . ') existe déjà.');
-                    return redirect()->route('admin.delivery-note.index');
-                }
-            }
-
-            DB::beginTransaction();
-            
-            // Delete details first
-            DeliveryNoteDetail::where('delivery_number', $delivery_number)->delete();
-            
-            // Delete main delivery note
-            $delivery_note->delete();
-
-            DB::commit();
-            session()->flash('success', 'Le bon de livraison est supprimé avec succès!!');
-        } catch (\Exception $e) {
-            DB::rollback();
-            session()->flash('error', __('messages.error_delete') . $e->getMessage());
-        }
-
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
         return redirect()->route('admin.delivery-note.index');
     }
 
@@ -757,7 +726,7 @@ class DeliveryNoteController extends Controller
                 }
                 if (!$productionOffsetId) {
                     throw new \Exception(
-                        'Paramètres comptables actifs : renseigner prod_sm_account_id (petite production) ou prod_bg_account_id (stock principal PF) selon le magasin de l\'article "' . ($detail->item->name ?? 'N/A') . '".'
+                        'Paramètres comptables actifs : renseigner le compte de production (petite production ou stock principal PF) selon le magasin de l\'article "' . ($detail->item->name ?? 'N/A') . '".'
                     );
                 }
                 $ledgerExpense = $this->updateLedgerTotals($productionOffsetId, 'debit', $expenseAmount);

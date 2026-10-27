@@ -217,20 +217,6 @@
                                             <a href="{{ route('admin.purchase-payment.create', $data->cash_outflow_request_no) }}" class="btn btn-primary">Sortir les fonds</a>
                                             @endif
                                             @endif
-
-                                            @if (Auth::guard('admin')->user()->can('account_cash_ouflow_request.delete'))
-                                                @if($data->flag2 != 1)
-                                                <a class="btn btn-danger text-white" href="{{ route('admin.cash-out-flow-request.destroy', $data->cash_outflow_request_no) }}"
-                                                onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $data->cash_outflow_request_no }}').submit(); }">
-                                                    @lang('messages.delete')
-                                                </a>
-                                                @endif
-
-                                                <form id="delete-form-{{ $data->cash_outflow_request_no }}" action="{{ route('admin.cash-out-flow-request.destroy', $data->cash_outflow_request_no) }}" method="POST" style="display: none;">
-                                                    @method('DELETE')
-                                                    @csrf
-                                                </form>
-                                            @endif
                                     </td>
                                 </tr>
                                @endforeach

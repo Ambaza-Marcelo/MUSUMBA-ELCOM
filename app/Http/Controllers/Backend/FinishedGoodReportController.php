@@ -56,12 +56,12 @@ class FinishedGoodReportController extends Controller
                 'quantity_stockin', 'value_stockin', 'quantity_stockout', 'value_stockout',
                 'quantity_stock_final', 'value_stock_final', 'type_transaction', 'document_no',
                 'description', 'cump', 'created_by'
-            )
-            ->orderBy('id', 'desc');
+            );
 
         StockReportFilter::apply($query, $request, $filterConfig);
+        $this->orderStockReportChronologically($query, 'desc');
 
-        $datas = $this->normalizeStockReportRows($query->get());
+        $datas = $this->normalizeStockReportRows($query->get(), 'desc');
 
         return view('backend.pages.finished_goods_report.index', array_merge(
             $this->stockReportViewData($request, $stores),
@@ -109,11 +109,11 @@ class FinishedGoodReportController extends Controller
                 'id', 'date', 'created_at', 'item_id', 'code_store',
                 'quantity_stock_initial', 'quantity_stockin', 'quantity_stockout',
                 'quantity_stock_final', 'type_transaction', 'document_no', 'description', 'created_by'
-            )
-            ->orderBy('id', 'asc');
+            );
 
         StockReportFilter::apply($query, $request, $this->stockReportFilterConfig());
-        $datas = $this->normalizeStockReportRows($query->get());
+        $this->orderStockReportChronologically($query, 'asc');
+        $datas = $this->normalizeStockReportRows($query->get(), 'asc');
 
         $setting = DB::table('settings')->orderBy('created_at', 'desc')->first();
         $dateTime = str_replace([' ', ':'], '_', Carbon::now()->toDateTimeString());

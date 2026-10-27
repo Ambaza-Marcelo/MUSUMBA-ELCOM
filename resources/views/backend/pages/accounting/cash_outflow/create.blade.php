@@ -111,11 +111,12 @@
                         <div class="col-md-6">
                             <div class="form-group">
                                 <label for="vat_supplier_payer">@lang('messages.assujetti à la tva?')</label>
-                                <select class="form-control" required name="vat_supplier_payer" id="vat_supplier_payer" required>
-                                 <option disabled="disabled" selected="selected">@lang('messages.Merci de choisir')</option>
-                                    <option value="0" {{ $data->vat_supplier_payer == 0 ? 'selected' : '' }}>@lang('messages.Non assujetti')</option>
-                                    <option value="1" {{ $data->vat_supplier_payer == 1 ? 'selected' : '' }}>@lang('messages.Assujetti')</option>
-                             </select>
+                                @php $requestVatPayer = optional($datas->first())->vat_supplier_payer; @endphp
+                                <select class="form-control" id="vat_supplier_payer" disabled>
+                                    <option value="0" {{ $requestVatPayer == 0 ? 'selected' : '' }}>@lang('messages.Non assujetti')</option>
+                                    <option value="1" {{ $requestVatPayer == 1 ? 'selected' : '' }}>@lang('messages.Assujetti')</option>
+                                </select>
+                                <input type="hidden" name="vat_supplier_payer" value="{{ $requestVatPayer ?? 0 }}">
                             </div>
                         </div>
                         <div class="col-md-6" id="vat_rate">
@@ -127,18 +128,25 @@
                             <tr class="">
                                 <th>@lang('messages.item')</th>
                                 <th>@lang('messages.quantity')</th>
-                                <th>@lang('messages.Action')</th>
+                                <th>P.U.</th>
+                                <th>HTVA</th>
+                                <th>TVA</th>
+                                <th>TTC</th>
                             </tr>
                             @foreach($datas as $data)
                             <tr class="">    
-                                <td><select class="form-control" name="expense_id[]" id="expense_id">
-                                <option disabled="disabled" selected="selected">@lang('messages.merci de choisir')</option>
-                                @foreach($expenses as $expense)
-                                <option value="{{ $expense->id }}" {{ $data->expense_id == $expense->id ? 'selected' : '' }} class="form-control">{{$expense->name}}/{{ number_format($expense->cost_price,0,',',' ') }}</option>
-                                @endforeach
-                                </select></td> 
-                                <td><input type="number" name="quantity[]" class="form-control" min="0" value="{{ $data->quantity }}" step="any" required readonly /></td>  
-                                <td></td>     
+                                <td>
+                                    {{ optional($data->expense)->name }}
+                                    <input type="hidden" name="expense_id[]" value="{{ $data->expense_id }}">
+                                </td>
+                                <td>
+                                    {{ number_format($data->quantity, 2, ',', ' ') }}
+                                    <input type="hidden" name="quantity[]" value="{{ $data->quantity }}">
+                                </td>
+                                <td>{{ number_format($data->cost_price, 0, ',', ' ') }}</td>
+                                <td>{{ number_format($data->cost_nvat, 0, ',', ' ') }}</td>
+                                <td>{{ number_format($data->vat, 0, ',', ' ') }}</td>
+                                <td>{{ number_format($data->cost_wvat, 0, ',', ' ') }}</td>
                             </tr>
                             @endforeach
                         </table>
@@ -196,8 +204,7 @@
     if ($(this).val() === '1'){
 
                 var vat_rate = "<label for='vat_rate'>@lang('messages.merci de choisir')<strong style='color: red;'>*</strong></label>"+
-                            "<select name='vat_rate' required class='form-control'>"+
-                                "<option selected disabled>@lang('messages.merci de choisir')</option>"+
+                            "<select class='form-control' disabled>"+
                                 "<option value='0' {{ $data->vat_rate == '0' ? 'selected' : '' }}>0%</option>"+
                                 "<option value='10' {{ $data->vat_rate == '10' ? 'selected' : '' }}>10%</option>"+
                                 "<option value='18' {{ $data->vat_rate == '18' ? 'selected' : '' }}>18%</option>";

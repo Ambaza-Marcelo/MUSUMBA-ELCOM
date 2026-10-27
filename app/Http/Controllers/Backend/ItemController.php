@@ -500,37 +500,71 @@ class ItemController extends Controller
             return;
         }
 
-        // HARD GUARANTEE: an item must exist in ONE stock only.
-        // We delete all existing store-detail rows for this item first, then re-create in the chosen store.
-        FinishedGoodsStoreDetail::where('item_id', $item->id)->delete();
-        FinishedGoodsSmStoreDetail::where('item_id', $item->id)->delete();
-        GoodsStoreDetail::where('item_id', $item->id)->delete();
+        // Preserve live stock qty/cump before any cleanup (editing an item must NOT wipe stock).
+        $preservedQty = 0.0;
+        $preservedCump = (float) $cump;
+        $preservedTotal = 0.0;
+        $targetCode = $item->code_store;
+
+        $existingRows = collect()
+            ->merge(FinishedGoodsStoreDetail::where('item_id', $item->id)->get())
+            ->merge(FinishedGoodsSmStoreDetail::where('item_id', $item->id)->get())
+            ->merge(GoodsStoreDetail::where('item_id', $item->id)->get());
+
+        if ($existingRows->isNotEmpty()) {
+            $preferred = $targetCode
+                ? $existingRows->firstWhere('code_store', $targetCode)
+                : null;
+            $source = $preferred ?: $existingRows->sortByDesc(function ($row) {
+                return (float) ($row->quantity ?? 0);
+            })->first();
+
+            $preservedQty = (float) ($source->quantity ?? 0);
+            if (!empty($source->cump)) {
+                $preservedCump = (float) $source->cump;
+            }
+            $preservedTotal = (float) ($source->total_cump_value ?? ($preservedQty * $preservedCump));
+        }
 
         if (!$item->isActive()) {
+            FinishedGoodsStoreDetail::where('item_id', $item->id)->delete();
+            FinishedGoodsSmStoreDetail::where('item_id', $item->id)->delete();
+            GoodsStoreDetail::where('item_id', $item->id)->delete();
             return;
         }
 
         if ($store_type === Item::STORE_TYPE_FINISHED_GOODS) {
-            // Determine which finished goods store to target using item.code_store:
-            // - If code_store exists in finished_goods_sm_stores => use FinishedGoodsSmStoreDetail
-            // - Else => use FinishedGoodsStoreDetail
-            $targetCode = $item->code_store;
             $targetIsSm = $targetCode ? FinishedGoodsSmStore::where('code', $targetCode)->exists() : false;
 
             if ($targetIsSm) {
-                $store = $targetCode ? FinishedGoodsSmStore::where('code', $targetCode)->first() : FinishedGoodsSmStore::first();
-                if (!$store) return;
-                $detail = new FinishedGoodsSmStoreDetail();
+                $store = $targetCode
+                    ? FinishedGoodsSmStore::where('code', $targetCode)->first()
+                    : FinishedGoodsSmStore::first();
+                if (!$store) {
+                    return;
+                }
+
+                FinishedGoodsStoreDetail::where('item_id', $item->id)->delete();
+                GoodsStoreDetail::where('item_id', $item->id)->delete();
+                FinishedGoodsSmStoreDetail::where('item_id', $item->id)
+                    ->where('code_store', '!=', $store->code)
+                    ->delete();
+
+                $detail = FinishedGoodsSmStoreDetail::firstOrNew([
+                    'item_id' => $item->id,
+                    'code_store' => $store->code,
+                ]);
+                $isNew = !$detail->exists;
                 $detail->name = $name;
                 $detail->code = $code;
                 $detail->code_store = $store->code;
                 $detail->item_id = $item->id;
-                $detail->quantity = 0;
-                $detail->created_by = $created_by;
+                $detail->quantity = $isNew ? $preservedQty : (float) ($detail->quantity ?? $preservedQty);
+                $detail->created_by = $detail->created_by ?: $created_by;
                 $detail->vat = $vat;
                 $detail->selling_price = $selling_price;
-                $detail->cump = $cump;
-                $detail->total_cump_value = 0;
+                $detail->cump = $isNew ? ($preservedCump ?: $cump) : (float) ($detail->cump ?: ($preservedCump ?: $cump));
+                $detail->total_cump_value = ((float) $detail->quantity) * ((float) $detail->cump);
                 $detail->expiration_date = $expiration_date;
                 $detail->default_account_id = $default_account_id;
                 $detail->specification = $specification;
@@ -539,18 +573,33 @@ class ItemController extends Controller
                 return;
             }
 
-            $store = $targetCode ? FinishedGoodsStore::where('code', $targetCode)->first() : FinishedGoodsStore::first();
-            if (!$store) return;
-            $detail = new FinishedGoodsStoreDetail();
+            $store = $targetCode
+                ? FinishedGoodsStore::where('code', $targetCode)->first()
+                : FinishedGoodsStore::first();
+            if (!$store) {
+                return;
+            }
+
+            FinishedGoodsSmStoreDetail::where('item_id', $item->id)->delete();
+            GoodsStoreDetail::where('item_id', $item->id)->delete();
+            FinishedGoodsStoreDetail::where('item_id', $item->id)
+                ->where('code_store', '!=', $store->code)
+                ->delete();
+
+            $detail = FinishedGoodsStoreDetail::firstOrNew([
+                'item_id' => $item->id,
+                'code_store' => $store->code,
+            ]);
+            $isNew = !$detail->exists;
             $detail->name = $name;
             $detail->code = $code;
             $detail->code_store = $store->code;
             $detail->item_id = $item->id;
-            $detail->quantity = 0;
-            $detail->created_by = $created_by;
+            $detail->quantity = $isNew ? $preservedQty : (float) ($detail->quantity ?? $preservedQty);
+            $detail->created_by = $detail->created_by ?: $created_by;
             $detail->vat = $vat;
             $detail->selling_price = $selling_price;
-            $detail->cump = $cump;
+            $detail->cump = $isNew ? ($preservedCump ?: $cump) : (float) ($detail->cump ?: ($preservedCump ?: $cump));
             $detail->expiration_date = $expiration_date;
             $detail->default_account_id = $default_account_id;
             $detail->specification = $specification;
@@ -561,30 +610,42 @@ class ItemController extends Controller
 
         // store_type == 2: GoodsStoreDetail (stock des marchandises)
         $store = GoodsStore::first();
-        if (!$store) return;
-        $detail = new GoodsStoreDetail();
+        if (!$store) {
+            return;
+        }
+
+        FinishedGoodsStoreDetail::where('item_id', $item->id)->delete();
+        FinishedGoodsSmStoreDetail::where('item_id', $item->id)->delete();
+        GoodsStoreDetail::where('item_id', $item->id)
+            ->where('code_store', '!=', $store->code)
+            ->delete();
+
+        $detail = GoodsStoreDetail::firstOrNew([
+            'item_id' => $item->id,
+            'code_store' => $store->code,
+        ]);
+        $isNew = !$detail->exists;
         $detail->name = $name;
         $detail->code = $code;
         $detail->code_store = $store->code;
         $detail->item_id = $item->id;
-        $detail->quantity = 0;
-        $detail->created_by = $created_by;
+        $detail->created_by = $detail->created_by ?: $created_by;
         $detail->vat = $vat;
-        // Pour les articles non stockables (status = 0) dans le stock des marchandises,
-        // on laisse les quantités/valeurs à 0 pour indiquer qu'ils ne sont pas suivis en stock.
-        if ((string)$item->status === '0') {
-            $detail->quantity = 0;
-            $detail->selling_price = 0;
-            $detail->cump = 0;
-        } else {
-            $detail->selling_price = $selling_price;
-            $detail->cump = $cump;
-        }
         $detail->expiration_date = $expiration_date;
         $detail->default_account_id = $default_account_id;
         $detail->specification = $specification;
-        $detail->status = (string)$item->status;
+        $detail->status = (string) $item->status;
         $detail->updated_by = $this->user->name;
+
+        if ((string) $item->status === '0') {
+            $detail->quantity = $isNew ? 0 : (float) ($detail->quantity ?? 0);
+            $detail->selling_price = 0;
+            $detail->cump = 0;
+        } else {
+            $detail->quantity = $isNew ? $preservedQty : (float) ($detail->quantity ?? $preservedQty);
+            $detail->selling_price = $selling_price;
+            $detail->cump = $isNew ? ($preservedCump ?: $cump) : (float) ($detail->cump ?: ($preservedCump ?: $cump));
+        }
         $detail->save();
     }
 

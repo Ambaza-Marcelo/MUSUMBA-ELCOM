@@ -75,11 +75,10 @@
                                     <div class="ajax-ac-wrap">
                                         <input type="text" name="item_name[]" id="item_name_0" placeholder="@lang('messages.search_finished_goods_item')" class="form-control" autocomplete="off" required />
                                         <input type="hidden" name="item_id[]" id="item_id_0" />
-                                        <input type="hidden" name="item_price[]" id="item_price_0" />
                                     </div>
                                 </td>  
-                                <td><input type="number" name="quantity[]" id="quantity_0" placeholder="@lang('messages.enter_quantity')" class="form-control quantity-input" required /></td>
-                                <td><input type="text" id="unit_price_0" class="form-control unit-price" readonly /></td>
+                                <td><input type="number" name="quantity[]" id="quantity_0" placeholder="@lang('messages.enter_quantity')" class="form-control quantity-input" min="0" step="any" required /></td>
+                                <td><input type="number" name="item_price[]" id="unit_price_0" class="form-control unit-price" min="0" step="any" placeholder="@lang('messages.Prix Unitaire')" required /></td>
                                 <td><input type="text" id="total_price_0" class="form-control total-price" readonly /></td>
                                 <td></td>
                             </tr>
@@ -127,12 +126,8 @@ $(function() {
     var i = 0;
     var itemPlaceholder = {!! json_encode(__('messages.search_finished_goods_item')) !!};
     var qtyPlaceholder = {!! json_encode(__('messages.enter_quantity')) !!};
+    var pricePlaceholder = {!! json_encode(__('messages.Prix Unitaire')) !!};
     var deleteLabel = {!! json_encode(__('messages.delete')) !!};
-
-    function parseBifToNumber(s) {
-        if (!s) return 0;
-        return parseFloat(String(s).replace(/[^\d.]/g, '')) || 0;
-    }
 
     function calculateRowTotal(rowIndex) {
         var quantityEl = document.getElementById('quantity_' + rowIndex);
@@ -141,7 +136,7 @@ $(function() {
         if (!quantityEl || !unitPriceEl || !totalPriceEl) return;
 
         var quantity = parseFloat(quantityEl.value) || 0;
-        var unitPrice = parseBifToNumber(unitPriceEl.value);
+        var unitPrice = parseFloat(unitPriceEl.value) || 0;
         var total = quantity * unitPrice;
         totalPriceEl.value = total.toLocaleString() + ' BIF';
         calculateGrandTotal();
@@ -156,8 +151,8 @@ $(function() {
         document.getElementById('grand_total').textContent = grandTotal.toLocaleString() + ' BIF';
     }
 
-    $(document).on('input', '.quantity-input', function() {
-        calculateRowTotal(this.id.split('_')[1]);
+    $(document).on('input', '.quantity-input, .unit-price', function() {
+        calculateRowTotal(this.id.split('_').pop());
     });
 
     function escHtml(s) {
@@ -179,8 +174,7 @@ $(function() {
             },
             onSelect: function(item) {
                 var price = Number(item.price != null ? item.price : 0);
-                $('#unit_price_' + rowIndex).val(price.toLocaleString() + ' BIF');
-                $('#item_price_' + rowIndex).val(price);
+                $('#unit_price_' + rowIndex).val(price);
                 calculateRowTotal(rowIndex);
             }
         });
@@ -207,10 +201,9 @@ $(function() {
             '<td><div class="ajax-ac-wrap">' +
             '<input type="text" name="item_name[]" id="item_name_' + i + '" placeholder="' + escHtml(itemPlaceholder) + '" class="form-control" autocomplete="off" required />' +
             '<input type="hidden" name="item_id[]" id="item_id_' + i + '" />' +
-            '<input type="hidden" name="item_price[]" id="item_price_' + i + '" />' +
             '</div></td>' +
-            '<td><input type="number" name="quantity[]" id="quantity_' + i + '" placeholder="' + escHtml(qtyPlaceholder) + '" class="form-control quantity-input" required /></td>' +
-            '<td><input type="text" id="unit_price_' + i + '" class="form-control unit-price" readonly /></td>' +
+            '<td><input type="number" name="quantity[]" id="quantity_' + i + '" placeholder="' + escHtml(qtyPlaceholder) + '" class="form-control quantity-input" min="0" step="any" required /></td>' +
+            '<td><input type="number" name="item_price[]" id="unit_price_' + i + '" class="form-control unit-price" min="0" step="any" placeholder="' + escHtml(pricePlaceholder) + '" required /></td>' +
             '<td><input type="text" id="total_price_' + i + '" class="form-control total-price" readonly /></td>' +
             '<td><button type="button" class="btn btn-danger remove-tr">' + escHtml(deleteLabel) + '</button></td>' +
             '</tr>';

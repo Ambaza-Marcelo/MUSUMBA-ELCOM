@@ -17,6 +17,7 @@ use App\Models\Accounting\AccountJournalEntryDetail;
 use App\Models\Accounting\AccountLedger;
 use App\Models\Accounting\Currency;
 use App\Models\Accounting\AccountCostCenter;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use Validator;
 use PDF;
 use Carbon\Carbon;
@@ -26,6 +27,7 @@ use App\Support\LedgerReportBuilder;
 
 class AccountJournalEntryController extends Controller
 {
+    use GuardsAccountingPeriod;
     //
     public $user;
 
@@ -83,7 +85,7 @@ class AccountJournalEntryController extends Controller
         if ($dateDebut && $dateFin) {
             $query->whereBetween('date', [$dateDebut, $dateFin]);
         } else {
-            $query->orderBy('date', 'desc')->orderBy('id', 'desc')->limit(100);
+            $query->orderBy('date', 'desc')->orderBy('created_at', 'desc')->orderBy('id', 'desc')->limit(100);
         }
 
         $datas = $query->get();
@@ -146,6 +148,10 @@ class AccountJournalEntryController extends Controller
                 return response()->json([
                     'error' => $error->errors()->all(),
                 ]);
+            }
+
+            if ($this->abortIfAccountingPeriodLocked($request->date)) {
+                return redirect()->back()->withInput();
             }
 
             try {DB::beginTransaction();
@@ -398,6 +404,10 @@ class AccountJournalEntryController extends Controller
             ]);
         }
 
+        if ($this->abortIfAccountingPeriodLocked($request->date)) {
+            return redirect()->back()->withInput();
+        }
+
         try {
             DB::beginTransaction();
 
@@ -524,7 +534,8 @@ class AccountJournalEntryController extends Controller
         $type = (string) $request->get('type', 'parent');
         $results = [];
 
-        if ($type === 'parent') {
+        // parent_children = sélection de parents pour en exporter les enfants
+        if ($type === 'parent' || $type === 'parent_children') {
             $parentQuery = AccountParentAccount::query();
             if ($term !== '') {
                 $parentQuery->where(function ($q) use ($term) {
@@ -622,7 +633,7 @@ class AccountJournalEntryController extends Controller
             $query->wherePieceOrDocumentIn($pieceTokens);
         }
 
-        $datas = $query->orderBy('date')->orderBy('id')->get();
+        $datas = $query->orderBy('date')->orderBy('created_at')->orderBy('id')->get();
 
         $sectionData = LedgerReportBuilder::buildAccountSections($datas);
         $pages = LedgerReportBuilder::buildPdfPages($sectionData['sections']);
@@ -656,7 +667,7 @@ class AccountJournalEntryController extends Controller
             'printedAt'
         ))->setPaper('a4', 'portrait');
 
-        return $pdf->download('GENERAL_LEDGER_' . str_replace(' ', '_', $accountLabel) . '_' . $periodStartFormatted . '_' . $periodEndFormatted . '.pdf');
+        return $pdf->download(self::ledgerFileName($accountLabel, $date_debut, $date_fin, 'pdf'));
     }
 
     /**
@@ -688,10 +699,6 @@ class AccountJournalEntryController extends Controller
         }
 
         $filterLabel = LedgerReportBuilder::buildFilterLabel($account_ids, $parent_account_ids);
-        $accountLabel = str_replace([' ', ';', '(', ')'], ['_', '-', '', ''], $filterLabel);
-
-        $periodStartFormatted = $date_debut ? Carbon::parse($date_debut)->format('d_m_Y') : '--_--_----';
-        $periodEndFormatted = $date_fin ? Carbon::parse($date_fin)->format('d_m_Y') : '--_--_----';
 
         $normalizedAccountIds = !empty($account_ids) ? $account_ids : null;
         $normalizedParentAccountIds = !empty($parent_account_ids) ? $parent_account_ids : null;
@@ -699,8 +706,22 @@ class AccountJournalEntryController extends Controller
 
         return Excel::download(
             new LedgerExport($date_debut, $date_fin, $normalizedAccountIds, $pieceTokens, $normalizedParentAccountIds),
-            'GENERAL_LEDGER_' . str_replace(' ', '_', $accountLabel) . '_' . $periodStartFormatted . '_' . $periodEndFormatted . '.xlsx'
+            self::ledgerFileName($filterLabel, $date_debut, $date_fin, 'xlsx')
         );
     }
-    
+
+    /**
+     * Nom de fichier sûr pour le téléchargement : ASCII uniquement, sans "/" ni "\".
+     */
+    private static function ledgerFileName(?string $label, $dateDebut, $dateFin, string $extension): string
+    {
+        $period = ($dateDebut ? Carbon::parse($dateDebut)->format('d_m_Y') : 'debut')
+            . '_' . ($dateFin ? Carbon::parse($dateFin)->format('d_m_Y') : 'fin');
+
+        $safeLabel = trim(preg_replace('/[^A-Za-z0-9_-]+/', '_', \Illuminate\Support\Str::ascii((string) $label)), '_');
+        $safeLabel = substr($safeLabel, 0, 120);
+
+        return 'GENERAL_LEDGER_' . ($safeLabel !== '' ? $safeLabel . '_' : '') . $period . '.' . $extension;
+    }
+
 }

@@ -104,84 +104,94 @@
 <table>
     <thead>
         <tr>
-            <th style="width:3%;">No</th>
-            <th style="width:7%;">Matricule</th>
-            <th style="width:12%;">Employe</th>
-            <th style="width:7%;">Salaire base</th>
-            <th style="width:6%;">Alloc. fam.</th>
-            <th style="width:6%;">Ind. log.</th>
-            <th style="width:6%;">Ind. depl.</th>
-            <th style="width:6%;">Prime</th>
-            <th style="width:7%;">Salaire brut</th>
-            <th style="width:6%;">INSS Emp.</th>
-            <th style="width:6%;">INSS Emplr</th>
-            <th style="width:6%;">Ass. Mal.</th>
-            <th style="width:5%;">IRE</th>
-            <th style="width:5%;">Pret</th>
-            <th style="width:5%;">Autres</th>
-            <th style="width:6%;">Tot. ret.</th>
-            <th style="width:7%;">Net a payer</th>
+            <th style="width:3%;">N°</th>
+            <th style="width:14%;">NOM et PRENOM</th>
+            <th style="width:4%;">JT</th>
+            <th style="width:6%;">SAL, BASE</th>
+            <th style="width:5%;">All fam</th>
+            <th style="width:6%;">Ind Log</th>
+            <th style="width:6%;">Ind Dépl</th>
+            <th style="width:5%;">Heure suppl</th>
+            <th style="width:5%;">AUT_IND</th>
+            <th style="width:6%;">Prim /Fonx°</th>
+            <th style="width:7%;">REM_BRUT</th>
+            <th style="width:6%;">INSS_PENS</th>
+            <th style="width:5%;">INSS_RSQ</th>
+            <th style="width:5%;">Santé QPP</th>
+            <th style="width:7%;">CHARGE_EMPL</th>
+            <th style="width:6%;">INSS_TRAV</th>
+            <th style="width:5%;">Santé_TRAV</th>
+            <th style="width:6%;">IRE Retenu</th>
+            <th style="width:5%;">AVANCE</th>
+            <th style="width:5%;">Soins méd</th>
+            <th style="width:6%;">Aut retenues</th>
+            <th style="width:6%;">TOT_RETENU</th>
+            <th style="width:7%;">NET A PAYER</th>
         </tr>
     </thead>
     <tbody>
         @foreach($datas as $row)
             @php
-                $brut = (float)$row->somme_salaire_base
-                    + (float)$row->allocation_familiale
-                    + (float)$row->indemnite_logement
-                    + (float)$row->indemnite_deplacement
-                    + (float)$row->prime_fonction;
-                $retenues = (float)$row->somme_cotisation_inss
-                    + (float)$row->assurance_maladie_employe
-                    + (float)$row->somme_impot
-                    + (float)$row->retenue_pret
-                    + (float)$row->soins_medicaux
-                    + (float)$row->autre_retenue;
-                $net = $brut - $retenues;
-
-                $totalBase += (float)$row->somme_salaire_base;
-                $totalBrut += $brut;
-                $totalInssEmp += (float)$row->somme_cotisation_inss;
-                $totalInssEmplr += (float)$row->inss_employeur;
-                $totalAssEmp += (float)$row->assurance_maladie_employe;
-                $totalAssEmplr += (float)$row->assurance_maladie_employeur;
-                $totalIre += (float)$row->somme_impot;
-                $totalPret += (float)$row->retenue_pret;
-                $totalSoins += (float)$row->soins_medicaux;
-                $totalAutre += (float)$row->autre_retenue + (float)$row->soins_medicaux;
-                $totalRetenue += $retenues;
-                $totalNet += $net;
+                $paie = \App\Support\PayrollCalculator::fromPaiement($row);
+                $totalBase += $paie['salaire_base'];
+                $totalBrut += $paie['rem_brut'];
+                $totalInssEmp += $paie['inss_trav'];
+                $totalInssEmplr += $paie['inss_pens'];
+                $totalAssEmp += $paie['sante_trav'];
+                $totalAssEmplr += $paie['sante_qpp'];
+                $totalIre += $paie['ire'];
+                $totalPret += $paie['avance'];
+                $totalSoins += $paie['soins_medicaux'];
+                $totalAutre += $paie['autres_retenues'];
+                $totalRetenue += $paie['tot_retenu'];
+                $totalNet += $paie['net'];
             @endphp
             <tr>
                 <td class="text-center">{{ $loop->iteration }}</td>
-                <td>{{ optional($row->employe)->matricule_no }}</td>
                 <td>{{ strtoupper(optional($row->employe)->firstname.' '.optional($row->employe)->lastname) }}</td>
-                <td class="text-right">{{ $fmt($row->somme_salaire_base) }}</td>
-                <td class="text-right">{{ $fmt($row->allocation_familiale) }}</td>
-                <td class="text-right">{{ $fmt($row->indemnite_logement) }}</td>
-                <td class="text-right">{{ $fmt($row->indemnite_deplacement) }}</td>
-                <td class="text-right">{{ $fmt($row->prime_fonction) }}</td>
-                <td class="text-right bold">{{ $fmt($brut) }}</td>
-                <td class="text-right">{{ $fmt($row->somme_cotisation_inss) }}</td>
-                <td class="text-right">{{ $fmt($row->inss_employeur) }}</td>
-                <td class="text-right">{{ $fmt($row->assurance_maladie_employe) }}</td>
-                <td class="text-right">{{ $fmt($row->somme_impot) }}</td>
-                <td class="text-right">{{ $fmt($row->retenue_pret) }}</td>
-                <td class="text-right">{{ $fmt((float)$row->autre_retenue + (float)$row->soins_medicaux) }}</td>
-                <td class="text-right bold">{{ $fmt($retenues) }}</td>
-                <td class="text-right bold">{{ $fmt($net) }}</td>
+                <td class="text-center">{{ $fmt($row->nbre_jours_ouvrables) }}</td>
+                <td class="text-right">{{ $fmt($paie['salaire_base']) }}</td>
+                <td class="text-right">{{ $fmt($paie['allocation_familiale']) }}</td>
+                <td class="text-right">{{ $fmt($paie['indemnite_logement']) }}</td>
+                <td class="text-right">{{ $fmt($paie['indemnite_deplacement']) }}</td>
+                <td class="text-right">{{ $fmt($paie['heures_suppl']) }}</td>
+                <td class="text-right">{{ $fmt($paie['autres_indemnites']) }}</td>
+                <td class="text-right">{{ $fmt($paie['prime_fonction']) }}</td>
+                <td class="text-right bold">{{ $fmt($paie['rem_brut']) }}</td>
+                <td class="text-right">{{ $fmt($paie['inss_pens']) }}</td>
+                <td class="text-right">{{ $fmt($paie['inss_risque']) }}</td>
+                <td class="text-right">{{ $fmt($paie['sante_qpp']) }}</td>
+                <td class="text-right">{{ $fmt($paie['charge_employeur']) }}</td>
+                <td class="text-right">{{ $fmt($paie['inss_trav']) }}</td>
+                <td class="text-right">{{ $fmt($paie['sante_trav']) }}</td>
+                <td class="text-right">{{ $fmt($paie['ire']) }}</td>
+                <td class="text-right">{{ $fmt($paie['avance']) }}</td>
+                <td class="text-right">{{ $fmt($paie['soins_medicaux']) }}</td>
+                <td class="text-right">{{ $fmt($paie['autres_retenues']) }}</td>
+                <td class="text-right bold">{{ $fmt($paie['tot_retenu']) }}</td>
+                <td class="text-right bold">{{ $fmt($paie['net']) }}</td>
             </tr>
         @endforeach
         <tr class="bold">
-            <td colspan="3" class="text-center">TOTAL</td>
+            <td colspan="2" class="text-center">TOTAL</td>
+            <td></td>
             <td class="text-right">{{ $fmt($totalBase) }}</td>
-            <td colspan="4"></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td class="text-right">{{ $fmt(0) }}</td>
+            <td class="text-right">{{ $fmt(0) }}</td>
+            <td></td>
             <td class="text-right">{{ $fmt($totalBrut) }}</td>
-            <td class="text-right">{{ $fmt($totalInssEmp) }}</td>
             <td class="text-right">{{ $fmt($totalInssEmplr) }}</td>
+            <td class="text-right">{{ $fmt(2400 * count($datas)) }}</td>
+            <td class="text-right">{{ $fmt($totalAssEmplr) }}</td>
+            <td class="text-right">{{ $fmt($totalBrut + $totalInssEmplr + $totalAssEmplr + (2400 * count($datas))) }}</td>
+            <td class="text-right">{{ $fmt($totalInssEmp) }}</td>
             <td class="text-right">{{ $fmt($totalAssEmp) }}</td>
             <td class="text-right">{{ $fmt($totalIre) }}</td>
             <td class="text-right">{{ $fmt($totalPret) }}</td>
+            <td class="text-right">{{ $fmt($totalSoins) }}</td>
             <td class="text-right">{{ $fmt($totalAutre) }}</td>
             <td class="text-right">{{ $fmt($totalRetenue) }}</td>
             <td class="text-right">{{ $fmt($totalNet) }}</td>

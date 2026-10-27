@@ -161,37 +161,6 @@
                                                 @endif
                                             @endif
                                             
-                                            @if($delivery_note->etat == '3')
-                                                @if($delivery_note->flag1 == '1')
-                                                    @php
-                                                        $invoice = \App\Models\Invoice::where('document_no', $delivery_note->delivery_number)->first();
-                                                    @endphp
-                                                    @if($invoice && $invoice->etat == '0' && Auth::guard('admin')->user()->can('invoice.edit'))
-                                                        <a class="btn btn-warning btn-sm text-white" href="{{ route('admin.invoice.edit', $invoice->invoice_number) }}" title="Modifier la Facture">
-                                                            <i class="fa fa-edit"></i> Modifier Facture
-                                                        </a>
-                                                    @endif
-                                                @else
-                                                    @if (Auth::guard('admin')->user()->can('invoice.create'))
-                                                        <a class="btn btn-success btn-sm text-white" href="{{ route('admin.invoice.create', $delivery_note->delivery_number) }}" title="@lang('messages.create_invoice')">
-                                                            <i class="fa fa-file-invoice"></i> Facture
-                                                        </a>
-                                                    @endif
-                                                @endif
-                                            @endif
-                                            
-                                            @if (!$hasValidatedInvoice)
-                                                @if (Auth::guard('admin')->user()->can('delivery_note.delete'))
-                                                    <a class="btn btn-danger btn-sm text-white" href="{{ route('admin.delivery-note.destroy', $delivery_note->delivery_number) }}"
-                                                        onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_delivery_note')) }})) { document.getElementById('delete-form-{{ $delivery_note->delivery_number }}').submit(); }" title="@lang('messages.delete')">
-                                                        <i class="fa fa-trash"></i>
-                                                    </a>
-                                                    <form id="delete-form-{{ $delivery_note->delivery_number }}" action="{{ route('admin.delivery-note.destroy', $delivery_note->delivery_number) }}" method="POST" style="display: none;">
-                                                        @method('DELETE')
-                                                        @csrf
-                                                    </form>
-                                                @endif
-                                            @endif
                                         </div>
                                     </td>
                                 </tr>

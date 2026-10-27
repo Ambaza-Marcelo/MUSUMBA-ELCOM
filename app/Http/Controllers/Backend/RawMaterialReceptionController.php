@@ -1358,32 +1358,9 @@ class RawMaterialReceptionController extends Controller
      */
     public function destroy($reception_no)
     {
-        if (is_null($this->user) || !$this->user->can('raw_material_reception.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any reception !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $reception = RawMaterialReception::where('reception_no',$reception_no)->first();
-        if (!is_null($reception)) {
-            $reception->delete();
-            RawMaterialReceptionDetail::where('reception_no',$reception_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'Reception has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
-
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.raw-material-receptions.index');
     }
     protected function updateLedgerTotals(int $accountId, string $type, float $amount): array
     {

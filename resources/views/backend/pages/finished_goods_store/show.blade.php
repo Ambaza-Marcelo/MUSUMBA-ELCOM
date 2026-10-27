@@ -52,6 +52,12 @@
                             <a class="btn btn-success text-white" href="{{ route('admin.finished-goods-store.edit', $finished_goods_store->id) }}">
                                 <i class="fa fa-edit"></i> @lang('messages.edit')
                             </a>
+                            <form action="{{ route('admin.finished-goods-store.resync', $finished_goods_store->code) }}" method="POST" class="d-inline" onsubmit="return confirm('Recalculer les quantités de ce magasin à partir du rapport de stock ?');">
+                                @csrf
+                                <button type="submit" class="btn btn-warning text-dark">
+                                    <i class="fa fa-refresh"></i> Recalculer quantités
+                                </button>
+                            </form>
                         @endif
                         <a class="btn btn-secondary text-white" href="{{ route('admin.finished-goods-store.index') }}">
                             <i class="fa fa-arrow-left"></i> @lang('messages.back')
@@ -111,20 +117,6 @@
                                         @endif
                                     </td>
                                     <td>
-                                        @if (Auth::guard('admin')->user()->can('finished_product_stock.delete'))
-                                            <a class="btn btn-danger btn-sm text-white" href="#"
-                                            onclick="event.preventDefault(); 
-                                            if(confirm('{{ __('messages.Are you sure you want to delete this item? This action is irreversible.') }}')) { 
-                                                document.getElementById('delete-form-{{ $detail->id }}').submit(); 
-                                            }">
-                                                <i class="fa fa-trash"></i> @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $detail->id }}" action="{{ route('admin.finished-goods-store-detail.destroy', $detail->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @empty

@@ -98,10 +98,22 @@ class RawMaterialTransferController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to create any transfer !');
         }
 
+        $requisition = RawMaterialRequisition::where('requisition_no', $requisition_no)->first();
+        if (!$requisition || (int) $requisition->status !== 4) {
+            session()->flash('error', 'Requisition must be approved (status 4) before creating a transfer !!');
+            return redirect()->route('admin.raw-material-transfers.index');
+        }
+
+        if (RawMaterialTransfer::where('requisition_no', $requisition_no)->exists()) {
+            session()->flash('error', 'A transfer already exists for this requisition !!');
+            return redirect()->route('admin.raw-material-transfers.index');
+        }
+
         $raw_materials  = RawMaterial::orderBy('name','asc')->get();
         $origin_stores = RawMaterialBigStore::all();
         $destination_stores = RawMaterialSmallStore::all();
-        $datas = RawMaterialRequisitionDetail::where('requisition_no', $requisition_no)->get();
+        $datas = RawMaterialRequisitionDetail::with('rawMaterial.rawMaterialMeasurement')
+            ->where('requisition_no', $requisition_no)->get();
         return view('backend.pages.raw_material_transfer.create', compact('raw_materials','requisition_no','datas','origin_stores','destination_stores'));
     }
 
@@ -111,10 +123,22 @@ class RawMaterialTransferController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to create any transfer !');
         }
 
+        $requisition = RawMaterialRequisition::where('requisition_no', $requisition_no)->first();
+        if (!$requisition || (int) $requisition->status !== 4) {
+            session()->flash('error', 'Requisition must be approved (status 4) before creating a transfer !!');
+            return redirect()->route('admin.raw-material-transfers.index');
+        }
+
+        if (RawMaterialTransfer::where('requisition_no', $requisition_no)->exists()) {
+            session()->flash('error', 'A transfer already exists for this requisition !!');
+            return redirect()->route('admin.raw-material-transfers.index');
+        }
+
         $raw_materials  = RawMaterial::orderBy('name','asc')->get();
         $origin_stores = RawMaterialExtraBigStore::all();
         $destination_stores = RawMaterialBigStore::all();
-        $datas = RawMaterialRequisitionDetail::where('requisition_no', $requisition_no)->get();
+        $datas = RawMaterialRequisitionDetail::with('rawMaterial.rawMaterialMeasurement')
+            ->where('requisition_no', $requisition_no)->get();
         return view('backend.pages.raw_material_transfer.create_from_big', compact('raw_materials','requisition_no','datas','origin_stores','destination_stores'));
     }
 
@@ -127,9 +151,21 @@ class RawMaterialTransferController extends Controller
         $raw_materials  = RawMaterial::where('store_type','!=',2)->orderBy('name','asc')->get();
         $origin_stores = RawMaterialBigStore::all();
         $destination_stores = RawMaterialSmallStore::all();
-        $data = RawMaterialTransferDetail::where('transfer_no', $transfer_no)->first();
-        $datas = RawMaterialTransferDetail::where('transfer_no', $transfer_no)->get();
+        $data = RawMaterialTransferDetail::with('rawMaterial.rawMaterialMeasurement')
+            ->where('transfer_no', $transfer_no)->first();
+        $datas = RawMaterialTransferDetail::with('rawMaterial.rawMaterialMeasurement')
+            ->where('transfer_no', $transfer_no)->get();
         return view('backend.pages.raw_material_transfer.portion', compact('raw_materials','transfer_no','datas','origin_stores','destination_stores','data'));
+    }
+
+    public function validatePortion($transfer_no)
+    {
+        if (is_null($this->user) || !$this->user->can('raw_material_transfer.portion')) {
+            abort(403, 'Sorry !! You are Unauthorized to portion any transfer !');
+        }
+
+        session()->flash('error', 'Fonctionnalité non disponible');
+        return redirect()->back();
     }
 
     /**
@@ -161,15 +197,13 @@ class RawMaterialTransferController extends Controller
             $error = Validator::make($request->all(),$rules);
 
             if($error->fails()){
-                return response()->json([
-                    'error' => $error->errors()->all(),
-                ]);
+                return redirect()->back()->withErrors($error)->withInput();
             }
 
             try {DB::beginTransaction();
 
             $r_material_id = $request->r_material_id;
-            $date = \Carbon\Carbon::now();
+            $date = $request->date;
             $origin_store_id = $request->origin_store_id;
             $requisition_no = $request->requisition_no;
             $type_store = $request->type_store;
@@ -280,15 +314,13 @@ class RawMaterialTransferController extends Controller
             $error = Validator::make($request->all(),$rules);
 
             if($error->fails()){
-                return response()->json([
-                    'error' => $error->errors()->all(),
-                ]);
+                return redirect()->back()->withErrors($error)->withInput();
             }
 
             try {DB::beginTransaction();
 
             $r_material_id = $request->r_material_id;
-            $date = \Carbon\Carbon::now();
+            $date = $request->date;
             $origin_extra_store_id = $request->origin_extra_store_id;
             $requisition_no = $request->requisition_no;
             $type_store = $request->type_store;
@@ -825,286 +857,420 @@ class RawMaterialTransferController extends Controller
         if ($this->abortIfStockDocumentAlreadyApproved($transfer)) {
             return back();
         }
+        $transferMainDate = $transfer->date;
 
         $datas = RawMaterialTransferDetail::where('transfer_no', $transfer_no)->get();
 
+        // Initialize arrays
+        $reportBigStoreData = [];
+        $reportBigStoreDataBg = [];
+        $reportMediumStoreData = [];
+        $reportSmallStoreData = [];
         $flag_food_bg = 0;
         $flag_food_md = 0;
         $flag_food_sm = 0;
-        
-        // Variables for accounting entries (for type 'md' transfers)
-        $totalTransferValue = 0;
-        $originStoreId = null;
-        $destinationStoreId = null;
-        $transferDate = null;
-        $transferDescription = null;
 
-        foreach($datas as $data){
+        // Accounting variables for type_store == 'md' (big → small)
+        $totalMdAccountingValue = 0;
+        $mdOriginAccountId = null;
+        $mdDestinationAccountId = null;
+        $mdTransferDate = null;
 
-                if ($data->type_store == 'md') {
-                    $code_store_origin = RawMaterialBigStore::where('id',$data->origin_store_id)->value('code');
-                    $code_store_destination = RawMaterialSmallStore::where('id',$data->destination_store_id)->value('code');
-                    
-                    // Store IDs and values for accounting entries
-                    if ($originStoreId === null) {
-                        $originStoreId = $data->origin_store_id;
-                        $destinationStoreId = $data->destination_store_id;
-                        $transferDate = $data->date;
-                        $transferDescription = $data->description ?? 'Transfer: ' . $transfer_no;
+        // Accounting variables for type_store == 'bg' (extra-big → big)
+        $totalBgAccountingValue = 0;
+        $bgOriginAccountId = null;
+        $bgDestinationAccountId = null;
+        $bgTransferDate = null;
+
+        foreach ($datas as $data) {
+
+            if ($data->type_store == 'md') {
+                $code_store_origin = RawMaterialBigStore::where('id', $data->origin_store_id)->value('code');
+                $code_store_destination = RawMaterialSmallStore::where('id', $data->destination_store_id)->value('code');
+
+                $valeurStockInitialOrigine = RawMaterialBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value') ?? 0;
+                $quantityStockInitialOrigine = RawMaterialBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('quantity') ?? 0;
+
+                $valeurStockInitialDestination = RawMaterialSmallStoreDetail::where('code', $code_store_destination)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value') ?? 0;
+                $quantityStockInitialDestination = RawMaterialSmallStoreDetail::where('code', $code_store_destination)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('quantity') ?? 0;
+
+                // Get CUMP from origin store
+                $cump = RawMaterialBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('cump') ?? 0;
+                if ($cump == 0) {
+                    $cump = RawMaterial::where('id', $data->r_material_id)->value('cump') ?? 0;
+                    if ($cump == 0) {
+                        $cump = RawMaterial::where('id', $data->r_material_id)->value('purchase_price') ?? 0;
                     }
-                    $totalTransferValue += $data->total_value_transfered;
+                }
 
-                $valeurStockInitialOrigine = RawMaterialBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value');
-                $quantityStockInitialOrigine = RawMaterialBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('quantity');
+                if ($data->quantity_transfered > $quantityStockInitialOrigine) {
+                    DB::rollBack();
+                    session()->flash('error', 'Why do you want transfering quantity you do not have in your store?please rewrite a valid quantity!');
+                    return redirect()->back();
+                }
+
                 $quantityRestantBigStore = $quantityStockInitialOrigine - $data->quantity_transfered;
+                $value_stockout = $data->quantity_transfered * $cump;
+                $quantity_stock_final_origin = $quantityStockInitialOrigine - $data->quantity_transfered;
+                $value_stock_final_origin = $quantity_stock_final_origin * $cump;
 
-                $valeurStockInitialDestination = RawMaterialSmallStoreDetail::where('code',$code_store_destination)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value');
-                $cump = RawMaterialBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('cump');
-                $quantityStockInitialDestination = RawMaterialSmallStoreDetail::where('code',$code_store_destination)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('quantity');
-                $quantityRestantSmallStore = $quantityStockInitialDestination - $data->quantity_transfered;
+                $value_stockin = $data->quantity_transfered * $cump;
+                $quantity_stock_final_destination = $quantityStockInitialDestination + $data->quantity_transfered;
+                $value_stock_final_destination = $quantity_stock_final_destination * $cump;
 
+                // Accumulate accounting values for type_store == 'md'
+                $originStore = RawMaterialBigStore::where('code', $code_store_origin)->first();
+                $destinationStore = RawMaterialSmallStore::where('code', $code_store_destination)->first();
 
-                $valeurAcquisition = $data->quantity_transfered * $data->price;
+                if ($mdOriginAccountId === null && $originStore && $destinationStore) {
+                    $mdOriginAccountId = $originStore->default_account_id;
+                    $mdDestinationAccountId = $destinationStore->default_account_id;
+                    $mdTransferDate = $transferMainDate;
+                }
+                $totalMdAccountingValue += $value_stockout;
 
-                $valeurTotalUnite = $data->quantity_transfered + $quantityStockInitialDestination;
-                $cump = $cump;
-
-                $reportMediumStore = array(
-                    'r_material_id' => $data->r_material_id,
-                    'quantity_stock_initial' => $quantityStockInitialOrigine,
-                    'value_stock_initial' => $valeurStockInitialOrigine,
-                    'code_store' => $code_store_origin,
-                    'quantity_stockout' => $data->quantity_transfered,
-                    'value_stockout' => $data->total_value_transfered,
-                    'quantity_stock_final' => $quantityStockInitialOrigine - $data->quantity_transfered,
-                    'value_stock_final' => $valeurStockInitialOrigine - $data->total_value_transfered,
-                    'cump' => $cump,
-                    'document_no' => $transfer_no,
-                    'type_transaction' => "SORTIE TRANSFERT",
-                    'description' => $data->description,
-                    'date' => $data->date,
-                    'created_by' => $this->user->name,
-                    'created_at' => \Carbon\Carbon::now()
-                );
-                $reportMediumStoreData[] = $reportMediumStore;
-
-
-                $reportSmallStore = array(
-                    'r_material_id' => $data->r_material_id,
-                    'quantity_stock_initial' => $quantityStockInitialDestination,
-                    'value_stock_initial' => $valeurStockInitialDestination,
-                    'code_store' => $code_store_destination,
-                    'quantity_stockin' => $data->quantity_transfered,
-                    'value_stockin' => $data->total_value_transfered,
-                    'quantity_stock_final' => $quantityStockInitialDestination + $data->quantity_transfered,
-                    'value_stock_final' => $valeurStockInitialDestination + $data->total_value_transfered,
-                    'cump' => $cump,
-                    'document_no' => $transfer_no,
-                    'type_transaction' => "ENTREE TRANSFERT",
-                    'description' => $data->description,
-                    'date' => $data->date,
-                    'created_by' => $this->user->name,
-                    'created_at' => \Carbon\Carbon::now()
-                );
-                $reportSmallStoreData[] = $reportSmallStore;
-
-                    $mdStore = array(
-                        'r_material_id' => $data->r_material_id,
-                        'quantity' => $quantityRestantBigStore,
-                        'total_purchase_value' => $quantityRestantBigStore * $data->price,
-                        'total_cump_value' => $quantityRestantBigStore * $data->price,
-                        'created_by' => $this->user->name,
-                        'verified' => false,
-                        'created_at' => \Carbon\Carbon::now()
-                    );
-
-
-                    $smallStoreData = array(
-                            'r_material_id' => $data->r_material_id,
-                            'quantity' => $data->quantity_transfered,
-                            'cump' => $cump,
-                            'code' => $code_store_destination,
-                            'purchase_price' => $data->price,
-                            'total_cump_value' => $cump * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'total_purchase_value' => $data->price * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'verified' => false,
-                            'created_by' => $this->user->name,
-                            'created_at' => \Carbon\Carbon::now()
-                        );
-                        $smallStore[] = $smallStoreData;
-
-                        $smStore = array(
-                            'r_material_id' => $data->r_material_id,
-                            'quantity' => $quantityStockInitialDestination + $data->quantity_transfered,
-                            'cump' => $cump,
-                            'total_cump_value' => $cump * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'total_purchase_value' => $data->price * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'verified' => false,
-                            'created_by' => $this->user->name,
-                            'created_at' => \Carbon\Carbon::now()
-                        );
-
-                        $raw_material_detail_id = RawMaterialSmallStoreDetail::where('code',$code_store_destination)->where("r_material_id",$data->r_material_id)->value('r_material_id');
-
-
-                    if ($data->quantity_transfered <= $quantityStockInitialOrigine) {
-                        
-                        RawMaterialBigStoreDetail::where('code',$code_store_origin)->where('r_material_id',$data->r_material_id)
-                        ->update($mdStore);
-
-                        $flag_food_md = 1;
-
-                        if (!empty($raw_material_detail_id)) {
-
-                            RawMaterialSmallStoreDetail::where('code',$code_store_destination)->where('r_material_id',$data->r_material_id)
-                        ->update($smStore);
-
-                            $flag_food_sm = 1;
-
-                        }else{
-                            session()->flash('error', 'oops! Something goes wrong, check if all items are in all stores');
-                            return redirect()->back();
-                        }
-
-                        // Status will be updated to 6 after all transfers are processed (see end of method)
-                        
-                    }else{
-                        session()->flash('error', 'Why do you want transfering quantity you do not have in your store?please rewrite a valid quantity!');
-                        return redirect()->back();
-                    }
-
-
-                }elseif ($data->type_store == 'bg') {
-                    $code_store_origin = RawMaterialExtraBigStore::where('id',$data->origin_extra_store_id)->value('code');
-                $code_store_destination = RawMaterialBigStore::where('id',$data->dest_bg_store_id)->value('code');
-
-                $valeurStockInitialOrigine = RawMaterialExtraBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value');
-                $quantityStockInitialOrigine = RawMaterialExtraBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('quantity');
-                $quantityRestantBigStore = $quantityStockInitialOrigine - $data->quantity_transfered;
-
-                $valeurStockInitialDestination = RawMaterialBigStoreDetail::where('code',$code_store_destination)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value');
-
-                $cump = RawMaterialExtraBigStoreDetail::where('code',$code_store_origin)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('cump');
-
-                $quantityStockInitialDestination = RawMaterialBigStoreDetail::where('code',$code_store_destination)->where('r_material_id','!=', '')->where('r_material_id', $data->r_material_id)->value('quantity');
-                $quantityRestantSmallStore = $quantityStockInitialDestination - $data->quantity_transfered;
-
-
-                $valeurAcquisition = $data->quantity_transfered * $data->price;
-
-                $valeurTotalUnite = $data->quantity_transfered + $quantityStockInitialDestination;
-                $cump = $cump;
-
+                // Report for origin store (SORTIE TRANSFERT)
                 $reportBigStore = array(
                     'r_material_id' => $data->r_material_id,
                     'quantity_stock_initial' => $quantityStockInitialOrigine,
                     'value_stock_initial' => $valeurStockInitialOrigine,
                     'code_store' => $code_store_origin,
+                    'date' => $data->date,
                     'quantity_stockout' => $data->quantity_transfered,
-                    'value_stockout' => $data->total_value_transfered,
-                    'quantity_stock_final' => $quantityStockInitialOrigine - $data->quantity_transfered,
-                    'value_stock_final' => $valeurStockInitialOrigine - $data->total_value_transfered,
+                    'value_stockout' => $value_stockout,
+                    'quantity_stock_final' => $quantity_stock_final_origin,
+                    'value_stock_final' => $value_stock_final_origin,
                     'cump' => $cump,
                     'document_no' => $transfer_no,
                     'type_transaction' => "SORTIE TRANSFERT",
                     'description' => $data->description,
-                    'date' => $data->date,
                     'created_by' => $this->user->name,
                     'created_at' => \Carbon\Carbon::now()
                 );
                 $reportBigStoreData[] = $reportBigStore;
 
+                // Report for destination store (ENTREE TRANSFERT)
+                $reportSmallStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity_stock_initial' => $quantityStockInitialDestination,
+                    'value_stock_initial' => $valeurStockInitialDestination,
+                    'code_store' => $code_store_destination,
+                    'date' => $data->date,
+                    'quantity_stockin' => $data->quantity_transfered,
+                    'value_stockin' => $value_stockin,
+                    'quantity_stock_final' => $quantity_stock_final_destination,
+                    'value_stock_final' => $value_stock_final_destination,
+                    'cump' => $cump,
+                    'document_no' => $transfer_no,
+                    'type_transaction' => "ENTREE TRANSFERT",
+                    'description' => $data->description,
+                    'created_by' => $this->user->name,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+                $reportSmallStoreData[] = $reportSmallStore;
 
+                $bigStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity' => $quantityRestantBigStore,
+                    'purchase_price' => $cump,
+                    'cump' => $cump,
+                    'total_purchase_value' => $quantityRestantBigStore * $cump,
+                    'total_cump_value' => $quantityRestantBigStore * $cump,
+                    'created_by' => $this->user->name,
+                    'verified' => false,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+
+                $smStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity' => $quantity_stock_final_destination,
+                    'purchase_price' => $cump,
+                    'cump' => $cump,
+                    'total_cump_value' => $value_stock_final_destination,
+                    'total_purchase_value' => $value_stock_final_destination,
+                    'verified' => false,
+                    'created_by' => $this->user->name,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+
+                $raw_material = RawMaterialSmallStoreDetail::where('code', $code_store_destination)->where('r_material_id', $data->r_material_id)->value('r_material_id');
+
+                RawMaterialBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', $data->r_material_id)
+                    ->update($bigStore);
+
+                $flag_food_md = 1;
+
+                if (!empty($raw_material)) {
+                    RawMaterialSmallStoreDetail::where('code', $code_store_destination)->where('r_material_id', $data->r_material_id)
+                        ->update($smStore);
+                } else {
+                    $smallStoreData = array(
+                        'r_material_id' => $data->r_material_id,
+                        'quantity' => $data->quantity_transfered,
+                        'cump' => $cump,
+                        'code' => $code_store_destination,
+                        'purchase_price' => $cump,
+                        'total_cump_value' => $value_stockin,
+                        'total_purchase_value' => $value_stockin,
+                        'verified' => false,
+                        'created_by' => $this->user->name,
+                        'created_at' => \Carbon\Carbon::now()
+                    );
+                    RawMaterialSmallStoreDetail::insert($smallStoreData);
+                }
+
+                $flag_food_sm = 1;
+
+            } elseif ($data->type_store == 'bg') {
+                $code_store_origin = RawMaterialExtraBigStore::where('id', $data->origin_extra_store_id)->value('code');
+                $code_store_destination = RawMaterialBigStore::where('id', $data->dest_bg_store_id)->value('code');
+
+                $valeurStockInitialOrigine = RawMaterialExtraBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value') ?? 0;
+                $quantityStockInitialOrigine = RawMaterialExtraBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('quantity') ?? 0;
+
+                $valeurStockInitialDestination = RawMaterialBigStoreDetail::where('code', $code_store_destination)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('total_cump_value') ?? 0;
+                $quantityStockInitialDestination = RawMaterialBigStoreDetail::where('code', $code_store_destination)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('quantity') ?? 0;
+
+                // Get CUMP from origin store
+                $cump = RawMaterialExtraBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', '!=', '')->where('r_material_id', $data->r_material_id)->value('cump') ?? 0;
+                if ($cump == 0) {
+                    $cump = RawMaterial::where('id', $data->r_material_id)->value('cump') ?? 0;
+                    if ($cump == 0) {
+                        $cump = RawMaterial::where('id', $data->r_material_id)->value('purchase_price') ?? 0;
+                    }
+                }
+
+                if ($data->quantity_transfered > $quantityStockInitialOrigine) {
+                    DB::rollBack();
+                    session()->flash('error', 'Why do you want transfering quantity you do not have in your store?please rewrite a valid quantity!');
+                    return redirect()->back();
+                }
+
+                $quantityRestantBigStore = $quantityStockInitialOrigine - $data->quantity_transfered;
+                $value_stockout = $data->quantity_transfered * $cump;
+                $quantity_stock_final_origin = $quantityStockInitialOrigine - $data->quantity_transfered;
+                $value_stock_final_origin = $quantity_stock_final_origin * $cump;
+
+                $value_stockin = $data->quantity_transfered * $cump;
+                $quantity_stock_final_destination = $quantityStockInitialDestination + $data->quantity_transfered;
+                $value_stock_final_destination = $quantity_stock_final_destination * $cump;
+
+                // Accumulate accounting values for type_store == 'bg'
+                $originStore = RawMaterialExtraBigStore::where('code', $code_store_origin)->first();
+                $destinationStore = RawMaterialBigStore::where('code', $code_store_destination)->first();
+
+                if ($bgOriginAccountId === null && $originStore && $destinationStore) {
+                    $bgOriginAccountId = $originStore->default_account_id;
+                    $bgDestinationAccountId = $destinationStore->default_account_id;
+                    $bgTransferDate = $transferMainDate;
+                }
+                $totalBgAccountingValue += $value_stockout;
+
+                // Report for origin store (SORTIE TRANSFERT)
+                $reportExtraBigStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity_stock_initial' => $quantityStockInitialOrigine,
+                    'value_stock_initial' => $valeurStockInitialOrigine,
+                    'code_store' => $code_store_origin,
+                    'date' => $data->date,
+                    'quantity_stockout' => $data->quantity_transfered,
+                    'value_stockout' => $value_stockout,
+                    'quantity_stock_final' => $quantity_stock_final_origin,
+                    'value_stock_final' => $value_stock_final_origin,
+                    'cump' => $cump,
+                    'document_no' => $transfer_no,
+                    'type_transaction' => "SORTIE TRANSFERT",
+                    'description' => $data->description,
+                    'created_by' => $this->user->name,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+                $reportBigStoreDataBg[] = $reportExtraBigStore;
+
+                // Report for destination store (ENTREE TRANSFERT)
                 $reportMediumStore = array(
                     'r_material_id' => $data->r_material_id,
                     'quantity_stock_initial' => $quantityStockInitialDestination,
                     'value_stock_initial' => $valeurStockInitialDestination,
                     'code_store' => $code_store_destination,
+                    'date' => $data->date,
                     'quantity_stockin' => $data->quantity_transfered,
-                    'value_stockin' => $data->total_value_transfered,
-                    'quantity_stock_final' => $quantityStockInitialDestination + $data->quantity_transfered,
-                    'value_stock_final' => $valeurStockInitialDestination + $data->total_value_transfered,
+                    'value_stockin' => $value_stockin,
+                    'quantity_stock_final' => $quantity_stock_final_destination,
+                    'value_stock_final' => $value_stock_final_destination,
                     'cump' => $cump,
                     'document_no' => $transfer_no,
                     'type_transaction' => "ENTREE TRANSFERT",
                     'description' => $data->description,
-                    'date' => $data->date,
                     'created_by' => $this->user->name,
                     'created_at' => \Carbon\Carbon::now()
                 );
                 $reportMediumStoreData[] = $reportMediumStore;
 
-                    $bigStore = array(
+                $extraBigStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity' => $quantityRestantBigStore,
+                    'purchase_price' => $cump,
+                    'cump' => $cump,
+                    'total_purchase_value' => $quantityRestantBigStore * $cump,
+                    'total_cump_value' => $quantityRestantBigStore * $cump,
+                    'created_by' => $this->user->name,
+                    'verified' => false,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+
+                $mdStore = array(
+                    'r_material_id' => $data->r_material_id,
+                    'quantity' => $quantity_stock_final_destination,
+                    'purchase_price' => $cump,
+                    'cump' => $cump,
+                    'total_cump_value' => $value_stock_final_destination,
+                    'total_purchase_value' => $value_stock_final_destination,
+                    'verified' => false,
+                    'created_by' => $this->user->name,
+                    'created_at' => \Carbon\Carbon::now()
+                );
+
+                $raw_material = RawMaterialBigStoreDetail::where('code', $code_store_destination)->where('r_material_id', $data->r_material_id)->value('r_material_id');
+
+                RawMaterialExtraBigStoreDetail::where('code', $code_store_origin)->where('r_material_id', $data->r_material_id)
+                    ->update($extraBigStore);
+
+                $flag_food_bg = 1;
+
+                if (!empty($raw_material)) {
+                    RawMaterialBigStoreDetail::where('code', $code_store_destination)->where('r_material_id', $data->r_material_id)
+                        ->update($mdStore);
+                } else {
+                    $mediumStoreData = array(
                         'r_material_id' => $data->r_material_id,
-                        'quantity' => $quantityRestantBigStore,
-                        'total_purchase_value' => $quantityRestantBigStore * $data->price,
-                        'total_cump_value' => $quantityRestantBigStore * $data->price,
-                        'created_by' => $this->user->name,
+                        'quantity' => $data->quantity_transfered,
+                        'cump' => $cump,
+                        'code' => $code_store_destination,
+                        'purchase_price' => $cump,
+                        'total_cump_value' => $value_stockin,
+                        'total_purchase_value' => $value_stockin,
                         'verified' => false,
+                        'created_by' => $this->user->name,
                         'created_at' => \Carbon\Carbon::now()
                     );
-
-
-                    $mediumStoreData = array(
-                            'r_material_id' => $data->r_material_id,
-                            'quantity' => $quantityStockInitialDestination + $data->quantity_transfered,
-                            'cump' => $cump,
-                            'code' => $code_store_destination,
-                            'purchase_price' => $data->price,
-                            'total_cump_value' => $cump * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'total_purchase_value' => $data->price * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'verified' => false,
-                            'created_by' => $this->user->name,
-                            'created_at' => \Carbon\Carbon::now()
-                        );
-                        $mediumStore[] = $mediumStoreData;
-
-                        $mdStore = array(
-                            'r_material_id' => $data->r_material_id,
-                            'quantity' => $quantityStockInitialDestination + $data->quantity_transfered,
-                            'cump' => $cump,
-                            'total_cump_value' => $cump * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'total_purchase_value' => $data->price * ($data->quantity_transfered + $quantityStockInitialDestination),
-                            'verified' => false,
-                            'created_by' => $this->user->name,
-                            'created_at' => \Carbon\Carbon::now()
-                        );
-
-                        $raw_material_detail_id = RawMaterialBigStoreDetail::where('code',$code_store_destination)->where("r_material_id",$data->r_material_id)->value('r_material_id');
-
-
-                    if ($data->quantity_transfered <= $quantityStockInitialOrigine) {
-                        
-                        RawMaterialExtraBigStoreDetail::where('code',$code_store_origin)->where('r_material_id',$data->r_material_id)
-                        ->update($bigStore);
-
-                        $flag_food_bg = 1;
-
-if (!empty($raw_material_detail_id)) {
-
-                        RawMaterialBigStoreDetail::where('code',$code_store_destination)->where('r_material_id',$data->r_material_id)
-                        ->update($mdStore);
-
-                        $flag_food_md = 1;
-
-                        }else{
-                            session()->flash('error', 'oops! Something goes wrong, check if all items are in all stores');
-                            return redirect()->back();
-                        }
-
-                        // Status will be updated to 6 after all transfers are processed (see end of method)
-                        
-                    }else{
-                        session()->flash('error', 'Why do you want transfering quantity you do not have in your store?please rewrite a valid quantity!');
-                        return redirect()->back();
-                    }
-
+                    RawMaterialBigStoreDetail::insert($mediumStoreData);
                 }
-  
+            }
+
         }
 
-        // Get the requisition_no from the first transfer detail to update requisition status
-        $requisition_no_to_update = $datas->first()->requisition_no ?? null;
+        // Accounting entries for type_store == 'bg'
+        if ($flag_food_bg != 0 && $totalBgAccountingValue > 0) {
+            if (!$bgOriginAccountId || !$bgDestinationAccountId) {
+                DB::rollBack();
+                session()->flash('error', 'Extra-big or big store default account not configured. Please configure it first !!');
+                return back();
+            }
+
+            $originLedger = AccountLedger::where('account_id', $bgOriginAccountId)->first();
+            $currentDebit = (float) ($originLedger->debit ?? 0);
+            $currentCredit = (float) ($originLedger->credit ?? 0);
+            $currentBalance = $currentDebit - $currentCredit;
+
+            if ($currentBalance <= 0) {
+                DB::rollBack();
+                session()->flash('error', 'Impossible d\'approuver le transfert. Le compte du grand stock a une balance de ' . number_format($currentBalance, 2) . '. Il n\'y a pas de valeur en stock ou la valeur a déjà été transférée.');
+                return redirect()->back();
+            }
+
+            if ($currentBalance < $totalBgAccountingValue) {
+                DB::rollBack();
+                session()->flash('error', 'Balance insuffisante du compte du grand stock. Balance actuelle: ' . number_format($currentBalance, 2) . ', Valeur transférée demandée: ' . number_format($totalBgAccountingValue, 2) . '. Il n\'y a pas suffisamment de valeur en stock pour effectuer ce transfert.');
+                return redirect()->back();
+            }
+
+            $originLedgerState = $this->updateLedgerTotals($bgOriginAccountId, 'credit', $totalBgAccountingValue);
+
+            AccountJournalEntryDetail::insert([[
+                'date' => $bgTransferDate,
+                'document_no' => $transfer_no,
+                'description' => 'Transfert GRAND STOCK VERS STOCK INTERMEDIAIRE',
+                'account_id' => $bgOriginAccountId,
+                'libelle' => 'Transfert GRAND STOCK VERS STOCK INTERMEDIAIRE',
+                'credit' => $totalBgAccountingValue,
+                'debit' => 0,
+                'balance' => $originLedgerState['balance'],
+                'active' => 1,
+                'created_at' => Carbon::now()
+            ]]);
+
+            $destinationLedgerState = $this->updateLedgerTotals($bgDestinationAccountId, 'debit', $totalBgAccountingValue);
+
+            AccountJournalEntryDetail::insert([[
+                'date' => $bgTransferDate,
+                'document_no' => $transfer_no,
+                'description' => 'Transfert GRAND STOCK VERS STOCK INTERMEDIAIRE',
+                'account_id' => $bgDestinationAccountId,
+                'libelle' => 'Transfert GRAND STOCK VERS STOCK INTERMEDIAIRE',
+                'debit' => $totalBgAccountingValue,
+                'credit' => 0,
+                'balance' => $destinationLedgerState['balance'],
+                'active' => 1,
+                'created_at' => Carbon::now()
+            ]]);
+        }
+
+        // Accounting entries for type_store == 'md'
+        if ($flag_food_md != 0 && $totalMdAccountingValue > 0) {
+            if (!$mdOriginAccountId || !$mdDestinationAccountId) {
+                DB::rollBack();
+                session()->flash('error', 'Intermediate or small store default account not configured. Please configure it first !!');
+                return back();
+            }
+
+            $originLedgerState = $this->updateLedgerTotals($mdOriginAccountId, 'credit', $totalMdAccountingValue);
+
+            AccountJournalEntryDetail::insert([[
+                'date' => $mdTransferDate ?? Carbon::now(),
+                'document_no' => $transfer_no,
+                'description' => 'Transfert STOCK INTERMEDIAIRE VERS PETIT STOCK',
+                'account_id' => $mdOriginAccountId,
+                'libelle' => 'Transfert STOCK INTERMEDIAIRE VERS PETIT STOCK',
+                'credit' => $totalMdAccountingValue,
+                'debit' => 0,
+                'balance' => $originLedgerState['balance'],
+                'active' => 1,
+                'created_at' => Carbon::now()
+            ]]);
+
+            $destinationLedgerState = $this->updateLedgerTotals($mdDestinationAccountId, 'debit', $totalMdAccountingValue);
+
+            AccountJournalEntryDetail::insert([[
+                'date' => $mdTransferDate ?? Carbon::now(),
+                'document_no' => $transfer_no,
+                'description' => 'Transfert STOCK INTERMEDIAIRE VERS PETIT STOCK',
+                'account_id' => $mdDestinationAccountId,
+                'libelle' => 'Transfert STOCK INTERMEDIAIRE VERS PETIT STOCK',
+                'debit' => $totalMdAccountingValue,
+                'credit' => 0,
+                'balance' => $destinationLedgerState['balance'],
+                'active' => 1,
+                'created_at' => Carbon::now()
+            ]]);
+        }
+
+        // Insert reports independently for bg and md paths
+        if ($flag_food_bg != 0) {
+            if (!empty($reportBigStoreDataBg)) {
+                RawMaterialExtraBigReport::insert($reportBigStoreDataBg);
+            }
+            if (!empty($reportMediumStoreData)) {
+                RawMaterialBigReport::insert($reportMediumStoreData);
+            }
+        }
+        if ($flag_food_md != 0) {
+            if (!empty($reportBigStoreData)) {
+                RawMaterialBigReport::insert($reportBigStoreData);
+            }
+            if (!empty($reportSmallStoreData)) {
+                RawMaterialSmallReport::insert($reportSmallStoreData);
+            }
+        }
 
         if ($flag_food_bg == 0 && $flag_food_md == 0 && $flag_food_sm == 0) {
             DB::rollBack();
@@ -1113,91 +1279,41 @@ if (!empty($raw_material_detail_id)) {
         }
 
         RawMaterialTransfer::where('transfer_no', '=', $transfer_no)
-                        ->update(['status' => 4,'approuved_by' => $this->user->name]);
+                        ->update(['status' => 4, 'approuved_by' => $this->user->name]);
         RawMaterialTransferDetail::where('transfer_no', '=', $transfer_no)
-                        ->update(['status' => 4,'approuved_by' => $this->user->name]);
+                        ->update(['status' => 4, 'approuved_by' => $this->user->name]);
 
-        // Update requisition status to 6 (transferred) when transfer is approved
-        if ($requisition_no_to_update) {
-            RawMaterialRequisition::where('requisition_no', '=', $requisition_no_to_update)
-                ->update(['status' => 6]);
-            RawMaterialRequisitionDetail::where('requisition_no', '=', $requisition_no_to_update)
-                ->update(['status' => 6]);
+        // Update requisition status to 6 (closed)
+        $requisition_no = RawMaterialTransfer::where('transfer_no', $transfer_no)->value('requisition_no');
+        if ($requisition_no) {
+            RawMaterialRequisition::where('requisition_no', $requisition_no)->update(['status' => 6]);
+            RawMaterialRequisitionDetail::where('requisition_no', $requisition_no)->update(['status' => 6]);
         }
 
-        if ($flag_food_bg != 0) {
-            RawMaterialExtraBigReport::insert($reportBigStoreData);
-            RawMaterialBigReport::insert($reportMediumStoreData);
-        }elseif ($flag_food_md != 0) {
-            RawMaterialBigReport::insert($reportMediumStoreData);
-            RawMaterialSmallReport::insert($reportSmallStoreData);
-            
-            // Accounting entries: Credit intermediate stock (RawMaterialBigStore), Debit small stock (RawMaterialSmallStore)
-            if ($totalTransferValue > 0 && $originStoreId && $destinationStoreId) {
-                // Get account IDs
-                $id_acc_intermediate_stock = RawMaterialBigStore::where('id', $originStoreId)->value('default_account_id');
-                $id_acc_small_stock = RawMaterialSmallStore::where('id', $destinationStoreId)->value('default_account_id');
-
-                if ($id_acc_intermediate_stock && $id_acc_small_stock) {
-                    // Credit intermediate stock account (decrease stock)
-                    $intermediateStockLedgerState = $this->updateLedgerTotals($id_acc_intermediate_stock, 'credit', $totalTransferValue);
-
-                    $journalEntryCreditIntermediateStock = array(
-                        'date' => $transferDate ?? Carbon::now(),
-                        'document_no' => $transfer_no,
-                        'description' => $transferDescription ?? 'Transfer: ' . $transfer_no,
-                        'account_id' => $id_acc_intermediate_stock,
-                        'libelle' => $transferDescription ?? 'Transfer: ' . $transfer_no,
-                        'credit' => $totalTransferValue,
-                        'balance' => $intermediateStockLedgerState['balance'],
-                        'created_at' => Carbon::now()
-                    );
-                    AccountJournalEntryDetail::insert([$journalEntryCreditIntermediateStock]);
-
-                    // Debit small stock account (increase stock)
-                    $smallStockLedgerState = $this->updateLedgerTotals($id_acc_small_stock, 'debit', $totalTransferValue);
-
-                    $journalEntryDebitSmallStock = array(
-                        'date' => $transferDate ?? Carbon::now(),
-                        'document_no' => $transfer_no,
-                        'description' => $transferDescription ?? 'Transfer: ' . $transfer_no,
-                        'account_id' => $id_acc_small_stock,
-                        'libelle' => $transferDescription ?? 'Transfer: ' . $transfer_no,
-                        'debit' => $totalTransferValue,
-                        'balance' => $smallStockLedgerState['balance'],
-                        'created_at' => Carbon::now()
-                    );
-                    AccountJournalEntryDetail::insert([$journalEntryDebitSmallStock]);
-                } else {
-                    // Rollback if accounts are not configured
-                    if (!$id_acc_intermediate_stock) {
-                        DB::rollback();
-                        session()->flash('error', 'Intermediate stock store default account not configured. Please configure it first !!');
-                        return back();
-                    }
-                    if (!$id_acc_small_stock) {
-                        DB::rollback();
-                        session()->flash('error', 'Small stock store default account not configured. Please configure it first !!');
-                        return back();
-                    }
-                }
+        $successMessage = 'Transfer has been done successfully!';
+        if ($flag_food_bg != 0 && !empty($reportBigStoreDataBg)) {
+            $successMessage .= ' From: ' . $reportBigStoreDataBg[0]['code_store'];
+            if (!empty($reportMediumStoreData)) {
+                $successMessage .= ' To: ' . $reportMediumStoreData[0]['code_store'];
+            }
+        } elseif (!empty($reportBigStoreData)) {
+            $successMessage .= ' From: ' . $reportBigStoreData[0]['code_store'];
+            if (!empty($reportSmallStoreData)) {
+                $successMessage .= ' To: ' . $reportSmallStoreData[0]['code_store'];
             }
         }
 
         DB::commit();
-            session()->flash('success', 'Transfer has been done successfuly !,from store '.$code_store_origin.' to '.$code_store_destination);
-            return back();
+
+        session()->flash('success', $successMessage);
+        return back();
         } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
             DB::rollback();
-
-            // and throw the error again.
-
             throw $e;
         }
 
     }
+
     /**
      * Remove the specified resource from storage.
      *
@@ -1210,36 +1326,44 @@ if (!empty($raw_material_detail_id)) {
             abort(403, 'Sorry !! You are Unauthorized to delete any transfer !');
         }
 
-        $transfer = RawMaterialTransfer::where('transfer_no',$transfer_no)->first();
+        $transfer = RawMaterialTransfer::where('transfer_no', $transfer_no)->first();
         if (is_null($transfer)) {
             session()->flash('error', 'Transfer not found !!');
             return back();
         }
 
+        // Refuse delete if transfer already approved (stock moved)
+        if ((int) $transfer->status === 4) {
+            session()->flash('error', 'Cannot delete an approved transfer (status 4) !!');
+            return back();
+        }
+
         // Check if requisition status is 6 (cannot delete when fully transferred)
         $requisition = RawMaterialRequisition::where('requisition_no', $transfer->requisition_no)->first();
-        if ($requisition && $requisition->status == 6) {
+        if ($requisition && (int) $requisition->status === 6) {
             session()->flash('error', 'Cannot delete a transfer when requisition status is 6 (Transferred) !!');
             return back();
         }
 
         try {DB::beginTransaction();
 
-        if (!is_null($transfer)) {
-            $transfer->delete();
-            RawMaterialTransferDetail::where('transfer_no',$transfer_no)->delete();
+        $requisitionNo = $transfer->requisition_no;
+        $requisitionStatus = $requisition ? (int) $requisition->status : null;
+
+        $transfer->delete();
+        RawMaterialTransferDetail::where('transfer_no', $transfer_no)->delete();
+
+        // If requisition was pending transfer (5), restore to approved (4)
+        if ($requisitionStatus === 5) {
+            RawMaterialRequisition::where('requisition_no', $requisitionNo)->update(['status' => 4]);
+            RawMaterialRequisitionDetail::where('requisition_no', $requisitionNo)->update(['status' => 4]);
         }
 
         DB::commit();
             session()->flash('success', 'Transfer has been deleted !!');
             return back();
         } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
             DB::rollback();
-
-            // and throw the error again.
-
             throw $e;
         }
 

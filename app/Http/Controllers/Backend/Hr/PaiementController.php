@@ -92,7 +92,14 @@ class PaiementController extends Controller
 
     public function fetch(Request $request)
     {
-        $data['data'] = HrEmploye::where("id", $request->employe_id)->get(["id","somme_salaire_base","numero_compte","indemnite_deplacement","indemnite_logement","prime_fonction","matricule_no","cni","code_departement","code_service","code_banque"]);
+        $data['data'] = HrEmploye::where("id", $request->employe_id)
+            ->get(["id","somme_salaire_base","numero_compte","prime_fonction","matricule_no","cni","code_departement","code_service","code_banque"])
+            ->map(function ($item) {
+                $base = (float) ($item->somme_salaire_base ?? 0);
+                $item->indemnite_deplacement = ($base * 15) / 100;
+                $item->indemnite_logement = ($base * 60) / 100;
+                return $item;
+            });
   
         return response()->json($data);
     }
@@ -223,71 +230,31 @@ class PaiementController extends Controller
         $created_by = $this->user->name;
             
 
-      $indemnite_deplacement = HrEmploye::where('id',$employe_id)->value('indemnite_deplacement');
-      $indemnite_logement = HrEmploye::where('id',$employe_id)->value('indemnite_logement');
-      $prime_fonction = HrEmploye::where('id',$employe_id)->value('prime_fonction');
+      $indemnite_deplacement = ((float) $somme_salaire_base * 15) / 100;
+      $indemnite_logement = ((float) $somme_salaire_base * 60) / 100;
+      $prime_fonction = (float) ($request->prime_fonction ?? HrEmploye::where('id',$employe_id)->value('prime_fonction') ?? 0);
 
-      $salaire_brut = $somme_salaire_base + $allocation_familiale + 
-       $indemnite_logement + $indemnite_deplacement + $prime_fonction;
+      $payroll = $this->computePayrollAmounts(
+          (float) $somme_salaire_base,
+          (float) $allocation_familiale,
+          (float) $indemnite_logement,
+          (float) $indemnite_deplacement,
+          (float) $prime_fonction,
+          (float) $retenue_pret,
+          (float) $soins_medicaux,
+          (float) $autre_retenue
+      );
 
-
-            if ($salaire_brut < 450000) {
-                $inss = ($salaire_brut * 4)/100;
-                $somme_cotisation_inss = ($salaire_brut * 4)/100;
-                $inss_employeur = ($salaire_brut * 6)/100;
-            }else{
-                $inss = (450000 * 4)/100;
-                $somme_cotisation_inss = ($plafond_cotisation * 4)/100;
-                $inss_employeur = ($plafond_cotisation * 6)/100;
-            }
-
-            if ($salaire_brut >= 2000000) {
-                $base_assurance_maladie = 2000000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 1000000 && $salaire_brut < 2000000) {
-                $base_assurance_maladie = 1000000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 500000 && $salaire_brut < 1000000) {
-                $base_assurance_maladie = 500000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 400000 && $salaire_brut < 500000) {
-                $base_assurance_maladie = 400000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 300000 && $salaire_brut < 400000) {
-                $base_assurance_maladie = 300000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 250000 && $salaire_brut < 300000) {
-                $base_assurance_maladie = 250000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }else{
-                $base_assurance_maladie = 200000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }
-
-
-        $base_imposable = $salaire_brut - $indemnite_logement - $indemnite_deplacement - $inss - $assurance_maladie_employe;
-      //les impots
-
-            if ($base_imposable >= 0 && $base_imposable <= 150000) {
-                $somme_impot = 0;
-            }elseif ($base_imposable > 150000 && $base_imposable <= 300000) {
-                $somme_impot = (($base_imposable - 150000) * 20)/100;
-            }elseif ($base_imposable > 300000) {
-                $somme_impot = 30000 + (($base_imposable - 300000) * 30)/100;    
-            }
-
-        $somme_salaire_brut_imposable = $salaire_brut;
-        $somme_salaire_brut_non_imposable = $salaire_brut;
-        $total_deductions = $somme_cotisation_inss + $assurance_maladie_employe + $somme_impot + $retenue_pret + $soins_medicaux + $autre_retenue;
-        $somme_salaire_net_imposable = $salaire_brut - $total_deductions;
-        $somme_salaire_net_non_imposable = $salaire_brut - $total_deductions;
+        $salaire_brut = $payroll['salaire_brut'];
+        $somme_cotisation_inss = $payroll['somme_cotisation_inss'];
+        $inss_employeur = $payroll['inss_employeur'];
+        $assurance_maladie_employe = $payroll['assurance_maladie_employe'];
+        $assurance_maladie_employeur = $payroll['assurance_maladie_employeur'];
+        $somme_impot = $payroll['somme_impot'];
+        $somme_salaire_brut_imposable = $payroll['salaire_brut'];
+        $somme_salaire_brut_non_imposable = $payroll['salaire_brut'];
+        $somme_salaire_net_imposable = $payroll['net'];
+        $somme_salaire_net_non_imposable = $payroll['net'];
 
         $paiement = new HrPaiement();
         $paiement->employe_id = $employe_id;
@@ -512,71 +479,31 @@ class PaiementController extends Controller
         $created_by = $this->user->name;
             
 
-      $indemnite_deplacement = HrEmploye::where('id',$employe_id)->value('indemnite_deplacement');
-      $indemnite_logement = HrEmploye::where('id',$employe_id)->value('indemnite_logement');
-      $prime_fonction = HrEmploye::where('id',$employe_id)->value('prime_fonction');
+      $indemnite_deplacement = ((float) $somme_salaire_base * 15) / 100;
+      $indemnite_logement = ((float) $somme_salaire_base * 60) / 100;
+      $prime_fonction = (float) ($request->prime_fonction ?? HrEmploye::where('id',$employe_id)->value('prime_fonction') ?? 0);
 
-      $salaire_brut = $somme_salaire_base + $allocation_familiale + 
-       $indemnite_logement + $indemnite_deplacement + $prime_fonction;
+      $payroll = $this->computePayrollAmounts(
+          (float) $somme_salaire_base,
+          (float) $allocation_familiale,
+          (float) $indemnite_logement,
+          (float) $indemnite_deplacement,
+          (float) $prime_fonction,
+          (float) $retenue_pret,
+          (float) $soins_medicaux,
+          (float) $autre_retenue
+      );
 
-
-            if ($salaire_brut < 450000) {
-                $inss = ($salaire_brut * 4)/100;
-                $somme_cotisation_inss = ($salaire_brut * 4)/100;
-                $inss_employeur = ($salaire_brut * 6)/100;
-            }else{
-                $inss = (450000 * 4)/100;
-                $somme_cotisation_inss = ($plafond_cotisation * 4)/100;
-                $inss_employeur = ($plafond_cotisation * 6)/100;
-            }
-
-            if ($salaire_brut >= 2000000) {
-                $base_assurance_maladie = 2000000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 1000000 && $salaire_brut < 2000000) {
-                $base_assurance_maladie = 1000000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 500000 && $salaire_brut < 1000000) {
-                $base_assurance_maladie = 500000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 400000 && $salaire_brut < 500000) {
-                $base_assurance_maladie = 400000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 300000 && $salaire_brut < 400000) {
-                $base_assurance_maladie = 300000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }elseif ($salaire_brut >= 250000 && $salaire_brut < 300000) {
-                $base_assurance_maladie = 250000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }else{
-                $base_assurance_maladie = 200000;
-                $assurance_maladie_employe = $base_assurance_maladie * 4 /100;
-                $assurance_maladie_employeur = $base_assurance_maladie * 6 /100;
-            }
-
-
-        $base_imposable = $salaire_brut - $indemnite_logement - $indemnite_deplacement - $inss - $assurance_maladie_employe;
-      //les impots
-
-            if ($base_imposable >= 0 && $base_imposable <= 150000) {
-                $somme_impot = 0;
-            }elseif ($base_imposable > 150000 && $base_imposable <= 300000) {
-                $somme_impot = (($base_imposable - 150000) * 20)/100;
-            }elseif ($base_imposable > 300000) {
-                $somme_impot = 30000 + (($base_imposable - 300000) * 30)/100;    
-            }
-
-        $somme_salaire_brut_imposable = $salaire_brut;
-        $somme_salaire_brut_non_imposable = $salaire_brut;
-        $total_deductions = $somme_cotisation_inss + $assurance_maladie_employe + $somme_impot + $retenue_pret + $soins_medicaux + $autre_retenue;
-        $somme_salaire_net_imposable = $salaire_brut - $total_deductions;
-        $somme_salaire_net_non_imposable = $salaire_brut - $total_deductions;
+        $salaire_brut = $payroll['salaire_brut'];
+        $somme_cotisation_inss = $payroll['somme_cotisation_inss'];
+        $inss_employeur = $payroll['inss_employeur'];
+        $assurance_maladie_employe = $payroll['assurance_maladie_employe'];
+        $assurance_maladie_employeur = $payroll['assurance_maladie_employeur'];
+        $somme_impot = $payroll['somme_impot'];
+        $somme_salaire_brut_imposable = $payroll['salaire_brut'];
+        $somme_salaire_brut_non_imposable = $payroll['salaire_brut'];
+        $somme_salaire_net_imposable = $payroll['net'];
+        $somme_salaire_net_non_imposable = $payroll['net'];
 
 
         $employe_id = HrPaiement::where('id',$id)->where('company_id',$company_id)->where('employe_id','!=','')->value('employe_id');
@@ -654,7 +581,7 @@ class PaiementController extends Controller
         }
 
         $remuneration_brute = $salaire_brut;
-        $total_deductions = $paiement->somme_cotisation_inss + $paiement->assurance_maladie_employe + $paiement->somme_impot + $paiement->retenue_pret + $paiement->soins_medicaux + $paiement->autre_retenue;
+        $total_deductions = $paiement->somme_cotisation_inss + $paiement->somme_impot + $paiement->retenue_pret + $paiement->soins_medicaux + $paiement->autre_retenue;
         $net_a_payer = $remuneration_brute - $total_deductions;
 
         $employe = HrEmploye::where('company_id',$company_id)->where('id',$employe_id)->first();
@@ -697,5 +624,36 @@ class PaiementController extends Controller
         $paiement->delete();
         session()->flash('success', 'le bulletin de paie est supprimé !!');
         return redirect()->back();
+    }
+
+    protected function computePayrollAmounts(
+        float $sommeSalaireBase,
+        float $allocationFamiliale,
+        float $indemniteLogement,
+        float $indemniteDeplacement,
+        float $primeFonction,
+        float $retenuePret,
+        float $soinsMedicaux,
+        float $autreRetenue
+    ): array {
+        $calc = \App\Support\PayrollCalculator::calculate(
+            $sommeSalaireBase,
+            $allocationFamiliale,
+            $primeFonction,
+            $retenuePret,
+            $soinsMedicaux,
+            $autreRetenue
+        );
+
+        return [
+            'salaire_brut' => $calc['rem_brut'],
+            'somme_cotisation_inss' => $calc['inss_trav'],
+            'inss_employeur' => $calc['inss_pens'],
+            'assurance_maladie_employe' => $calc['sante_trav'],
+            'assurance_maladie_employeur' => $calc['sante_qpp'],
+            'somme_impot' => $calc['ire'],
+            'total_deductions' => $calc['tot_retenu'],
+            'net' => $calc['net'],
+        ];
     }
 }

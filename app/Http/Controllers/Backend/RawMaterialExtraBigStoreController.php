@@ -251,18 +251,9 @@ class RawMaterialExtraBigStoreController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+        public function destroy($id)
     {
-        if (is_null($this->user) || !$this->user->can('raw_material_extra_big_store.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any raw material store !');
-        }
-
-        $raw_material_extra_big_store_detail = RawMaterialExtraBigStoreDetail::find($id);
-        if (!is_null($raw_material_extra_big_store_detail)) {
-            $raw_material_extra_big_store_detail->delete();
-        }
-
-        session()->flash('success', 'Raw Material Big Store has been deleted !!');
-        return back();
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.raw-material-extra-big-store.index');
     }
 }

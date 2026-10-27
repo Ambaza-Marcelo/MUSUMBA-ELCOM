@@ -82,17 +82,6 @@
                                     <td>{{ number_format($material_small_store->purchase_price,0,',',' ') }}</td>
                                     <td>{{ number_format($material_small_store->total_purchase_value,0,',',' ') }}</td>
                                     <td>
-                                        @if (Auth::guard('admin')->user()->can('material_small_store.delete'))
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.material-small-store.destroy', $material_small_store->id) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $material_small_store->id }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $material_small_store->id }}" action="{{ route('admin.material-small-store.destroy', $material_small_store->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @endforeach

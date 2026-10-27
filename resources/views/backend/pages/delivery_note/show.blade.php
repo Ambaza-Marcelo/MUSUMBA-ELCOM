@@ -128,25 +128,6 @@
                             <a class="btn btn-light" href="{{ route('admin.delivery-note.index') }}">
                                 <i class="fa fa-arrow-left"></i> {{ __('messages.back') }}
                             </a>
-                            @if($delivery_note->etat == '3')
-                                @if (Auth::guard('admin')->user()->can('invoice.create'))
-                                    <a class="btn btn-success text-white" href="{{ route('admin.invoice.create', $delivery_note->delivery_number) }}" title="@lang('messages.create_invoice')">
-                                        <i class="fa fa-file-invoice"></i> Facture
-                                    </a>
-                                @endif
-                            @endif
-                            @if (!$hasValidatedInvoice)
-                                @if (Auth::guard('admin')->user()->can('delivery_note.delete'))
-                                    <a class="btn btn-danger text-white" href="{{ route('admin.delivery-note.destroy', $delivery_note->delivery_number) }}"
-                                        onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_delivery_note')) }})) { document.getElementById('delete-form').submit(); }">
-                                        @lang('messages.delete')
-                                    </a>
-                                    <form id="delete-form" action="{{ route('admin.delivery-note.destroy', $delivery_note->delivery_number) }}" method="POST" style="display: none;">
-                                        @method('DELETE')
-                                        @csrf
-                                    </form>
-                                @endif
-                            @endif
                         </div>
                     </div>
                     <div class="clearfix"></div>

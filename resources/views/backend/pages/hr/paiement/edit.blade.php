@@ -144,7 +144,7 @@
                         <div class="col-sm-6">
                             <div class="form-group">
                                 <label for="retenue_pret">@lang('Retenue Prêt')</label>
-                                <input type="number" class="form-control" id="retenue_pret" name="retenue_pret" value="{{ $data->retenue_pret ?? 0 }}" step="any" min="0" required readonly title="Rempli automatiquement selon l'avance en cours de l'employé">
+                                <input type="number" class="form-control" id="retenue_pret" name="retenue_pret" value="{{ $data->retenue_pret ?? 0 }}" step="any" min="0" required>
                             </div>
                         </div>
                         <div class="col-sm-6">
@@ -184,41 +184,15 @@
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script type="text/javascript">
 $(document).ready(function() {
-    // Function to fetch loan data and auto-fill retenue_pret
-    function fetchLoanData(idEmploye) {
-        var date_debut = $('input[name="date_debut"]').val();
-        
-        if (!date_debut) {
-            $('input[name="retenue_pret"]').val(0);
-            return;
-        }
-
-        $.ajax({
-            url: "{{route('admin.hr-paiements.fetch-loan')}}",
-            type: "POST",
-            data: {
-                employe_id: idEmploye,
-                date_debut: date_debut,
-                _token: '{{csrf_token()}}'
-            },
-            dataType: 'json',
-            success: function (result) {
-                if (result.retenue_pret !== undefined) {
-                    $('input[name="retenue_pret"]').val(result.retenue_pret || 0);
-                } else {
-                    $('input[name="retenue_pret"]').val(0);
-                }
-            },
-            error: function() {
-                $('input[name="retenue_pret"]').val(0);
-            }
-        });
+    function syncAllowanceFields() {
+        var base = parseFloat($('input[name="somme_salaire_base"]').val()) || 0;
+        $('input[name="indemnite_deplacement"]').val(((base * 15) / 100).toFixed(2));
+        $('input[name="indemnite_logement"]').val(((base * 60) / 100).toFixed(2));
     }
 
-    // Initialize loan data on page load if employee is already selected
-    var initialEmployeId = $('#employe_id').val();
-    if (initialEmployeId) {
-        fetchLoanData(initialEmployeId);
+    // Retenue prêt reste une saisie manuelle
+    if (!$('input[name="retenue_pret"]').val()) {
+        $('input[name="retenue_pret"]').val(0);
     }
 
     // Employee autocomplete data
@@ -397,8 +371,9 @@ $(document).ready(function() {
             success: function (result) {
                 $('#somme_salaire_base').html('<label>Salaire Base</label>');
                 $.each(result.data, function (key, value) {
-                    $("#somme_salaire_base").append('<input type="number" class="form-control" name="somme_salaire_base" min="0" readonly value="' + value.somme_salaire_base + '">');
+                    $("#somme_salaire_base").append('<input type="number" class="form-control" name="somme_salaire_base" min="0" step="any" value="' + value.somme_salaire_base + '">');
                 });
+                syncAllowanceFields();
             }
         });
 
@@ -435,6 +410,7 @@ $(document).ready(function() {
                 $.each(result.data, function (key, value) {
                     $("#indemnite_deplacement").append('<input type="number" name="indemnite_deplacement" class="form-control" min="0" readonly value="' + value.indemnite_deplacement + '">');
                 });
+                syncAllowanceFields();
             }
         });
 
@@ -453,6 +429,7 @@ $(document).ready(function() {
                 $.each(result.data, function (key, value) {
                     $("#indemnite_logement").append('<input type="number" name="indemnite_logement" class="form-control" min="0" readonly value="' + value.indemnite_logement + '">');
                 });
+                syncAllowanceFields();
             }
         });
 
@@ -469,27 +446,20 @@ $(document).ready(function() {
             success: function (result) {
                 $('#prime_fonction').html('<label>Prime de fonction</label>');
                 $.each(result.data, function (key, value) {
-                    $("#prime_fonction").append('<input type="number" name="prime_fonction" class="form-control" min="0" readonly value="' + value.prime_fonction + '">');
+                    $("#prime_fonction").append('<input type="number" name="prime_fonction" class="form-control" min="0" step="any" value="' + value.prime_fonction + '">');
                 });
             }
         });
 
-        // Fetch loan data and auto-fill retenue_pret
-        fetchLoanData(idEmploye);
     }
-
-    // Auto-fill retenue_pret when date_debut changes
-    $('input[name="date_debut"]').on('change', function() {
-        var employe_id = $('#employe_id').val();
-        if (employe_id) {
-            fetchLoanData(employe_id);
-        }
-    });
 
     // Auto-fill retenue_pret when employee is changed
     $('#employe_search').on('input', function() {
         // This will be handled by the employee selection click handler
     });
+
+    $(document).on('input', 'input[name="somme_salaire_base"]', syncAllowanceFields);
+    syncAllowanceFields();
 });
 
 

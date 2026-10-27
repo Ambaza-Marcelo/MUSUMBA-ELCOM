@@ -594,13 +594,14 @@ class RawMaterialSupplierOrderController extends Controller
         }
 
         $setting = DB::table('settings')->orderBy('created_at','desc')->first();
-        $stat = RawMaterialSupplierOrder::where('order_no', $order_no)->value('status');
-        $description = RawMaterialSupplierOrder::where('order_no', $order_no)->value('description');
-        $date = RawMaterialSupplierOrder::where('order_no', $order_no)->value('date');
         $data = RawMaterialSupplierOrder::where('order_no', $order_no)->first();
-        if($stat == 2 || $stat == 3 || $stat == 4 || $stat == 5 || $stat == -3){
-           $order_no = RawMaterialSupplierOrder::where('order_no', $order_no)->value('order_no');
-           $order_signature = RawMaterialSupplierOrder::where('order_no', $order_no)->value('order_signature');
+        if (!$data) {
+            session()->flash('error', 'Bon de commande introuvable.');
+            return back();
+        }
+        $description = $data->description;
+        $date = $data->date;
+        $order_signature = $data->order_signature;
            $totalValue = DB::table('raw_material_supplier_order_details')
             ->where('order_no', '=', $order_no)
             ->sum('total_value');
@@ -617,16 +618,7 @@ class RawMaterialSupplierOrderController extends Controller
            Storage::put('public/pdf/raw_material_supplier_order/'.'BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf', $pdf->output());
 
            // download pdf file
-           return $pdf->download('BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf'); 
-           
-        }else if ($stat == -1) {
-            session()->flash('error', 'Order has been rejected !!');
-            return back();
-        }else{
-            session()->flash('error', 'wait until Order will be validated !!');
-            return back();
-        }
-        
+           return $pdf->download('BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf');
     }
 
     public function print($order_no) { return $this->rawMaterialSupplierOrder($order_no); }
@@ -639,30 +631,8 @@ class RawMaterialSupplierOrderController extends Controller
      */
     public function destroy($order_no)
     {
-        if (is_null($this->user) || !$this->user->can('raw_material_supplier_order.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any order !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $order = RawMaterialSupplierOrder::where('order_no',$order_no)->first();
-        if (!is_null($order)) {
-            $order->delete();
-            RawMaterialSupplierOrderDetail::where('order_no',$order_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'Transfer has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.raw-material-supplier-orders.index');
     }
 }

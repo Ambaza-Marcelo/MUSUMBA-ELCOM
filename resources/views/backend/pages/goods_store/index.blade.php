@@ -89,16 +89,6 @@
                                                 <i class="fa fa-edit"></i> @lang('messages.edit')
                                             </a>
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('goods_stock.delete'))
-                                            <a class="btn btn-danger btn-sm text-white" href="{{ route('admin.goods-store.destroy', $store->id) }}"
-                                            onclick="event.preventDefault(); if(confirm('Supprimer ce magasin ?')) { document.getElementById('delete-form-{{ $store->id }}').submit(); }">
-                                                <i class="fa fa-trash"></i> @lang('messages.delete')
-                                            </a>
-                                            <form id="delete-form-{{ $store->id }}" action="{{ route('admin.goods-store.destroy', $store->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @endforeach

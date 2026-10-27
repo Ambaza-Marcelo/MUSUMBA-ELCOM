@@ -1392,31 +1392,7 @@ class CashOutFlowRequestController extends Controller
      */
     public function destroy($cash_outflow_request_no)
     {
-        if (is_null($this->user) || !$this->user->can('account_cash_ouflow_request.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any cash out flow request !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $cash_out_flow_request = CashOutFlowRequest::where('cash_outflow_request_no',$cash_outflow_request_no)->first();
-        if (!is_null($cash_out_flow_request)) {
-            $cash_out_flow_request->delete();
-            CashOutFlowRequestDetail::where('cash_outflow_request_no',$cash_outflow_request_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'cash out flow request has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
-
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.cash-out-flow-request.index');
     }
 }

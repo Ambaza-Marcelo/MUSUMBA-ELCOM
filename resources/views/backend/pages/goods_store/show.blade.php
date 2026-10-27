@@ -97,16 +97,6 @@
                                         <td><span class="badge badge-success">@lang('messages.Stockable')</span></td>
                                     @endif
                                     <td>
-                                        @if (Auth::guard('admin')->user()->can('goods_stock.delete'))
-                                            <a class="btn btn-danger btn-sm text-white" href="#"
-                                            onclick="event.preventDefault(); if(confirm('Supprimer ce détail ?')) { document.getElementById('delete-form-{{ $detail->id }}').submit(); }">
-                                                <i class="fa fa-trash"></i> @lang('messages.delete')
-                                            </a>
-                                            <form id="delete-form-{{ $detail->id }}" action="{{ route('admin.goods-store-detail.destroy', $detail->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @empty

@@ -79,6 +79,11 @@
             height: 32px;
         }
 
+        .balance-account-filter .btn {
+            flex: 1 1 auto;
+            white-space: nowrap;
+        }
+
         #parent_account_search:focus {
             outline: none;
             box-shadow: none;
@@ -180,10 +185,13 @@
                     <div class="d-flex flex-wrap justify-content-between align-items-start mb-3">
                         <h4 class="header-title mb-0">{{ __('messages.accounts_balance_title') }}</h4>
                         <div class="d-flex align-items-center flex-wrap">
-                            <button type="button" class="btn btn-primary btn-sm mr-1" data-toggle="modal" data-target="#exportBalanceModal">
+                            <button type="button" class="btn btn-info btn-sm mr-1" data-toggle="modal" data-target="#exportBalanceModal">
+                                <i class="fa fa-filter"></i> @lang('messages.accounts_balance_configure')
+                            </button>
+                            <button type="button" class="btn btn-primary btn-sm mr-1" data-toggle="modal" data-target="#exportBalanceModal" data-export-mode="pdf">
                                 <i class="fa fa-file-pdf"></i> @lang('messages.export_pdf')
                             </button>
-                            <button type="button" class="btn btn-success btn-sm mr-2" data-toggle="modal" data-target="#exportBalanceModal">
+                            <button type="button" class="btn btn-success btn-sm mr-2" data-toggle="modal" data-target="#exportBalanceModal" data-export-mode="excel">
                                 <i class="fa fa-file-excel"></i> @lang('messages.export_excel')
                             </button>
                             <span class="text-muted small">@lang('messages.accounts_balance_generated_at') {{ $reportGeneratedAt }}</span>
@@ -276,44 +284,69 @@
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form id="exportBalanceForm" method="GET" action="{{ route('admin.accounts-balance.export-pdf') }}" target="_blank">
-                <input type="hidden" name="ledger_account_mode" id="ledger_account_mode" value="all">
+            <form id="exportBalanceForm" method="GET" action="{{ route('admin.accounts-balance.index') }}">
+                <input type="hidden" name="ledger_account_mode" id="ledger_account_mode" value="{{ $ledgerAccountMode ?? 'all' }}">
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="modal_fiscal_year">@lang('messages.accounts_balance_fiscal_year') <strong class="text-danger">*</strong></label>
+                        <label for="modal_fiscal_year">@lang('messages.accounts_balance_fiscal_year')</label>
                         <input type="number"
                                class="form-control"
                                id="modal_fiscal_year"
                                name="fiscal_year"
                                min="2000"
                                max="9999"
-                               value="{{ $fiscalYear }}"
-                               required>
-                        <small class="form-text text-muted">@lang('messages.accounts_balance_fiscal_year_help')</small>
+                               value="{{ $fiscalYear }}">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group col-md-6">
+                            <label for="modal_date_debut">@lang('messages.Date début') <strong class="text-danger">*</strong></label>
+                            <input type="date"
+                                   class="form-control"
+                                   id="modal_date_debut"
+                                   name="date_debut"
+                                   value="{{ $dateDebut ?? ($fiscalYear . '-01-01') }}"
+                                   required>
+                        </div>
+                        <div class="form-group col-md-6">
+                            <label for="modal_date_fin">@lang('messages.Date de fin') <strong class="text-danger">*</strong></label>
+                            <input type="date"
+                                   class="form-control"
+                                   id="modal_date_fin"
+                                   name="date_fin"
+                                   value="{{ $dateFin ?? ($fiscalYear . '-12-31') }}"
+                                   required>
+                        </div>
                     </div>
                     <div class="form-group mb-0">
                         <label for="parent_account_search">@lang('messages.ledger_accounts_unified_label')</label>
-                        <div class="btn-group btn-group-sm d-flex mb-2 balance-account-filter" role="group">
+                        <div class="btn-group btn-group-sm d-flex flex-wrap mb-2 balance-account-filter" role="group">
                             <button type="button"
-                                    class="btn btn-outline-secondary balance-account-filter-btn active"
+                                    class="btn btn-outline-secondary balance-account-filter-btn {{ ($ledgerAccountMode ?? 'all') === 'all' ? 'active' : '' }}"
                                     data-mode="all"
                                     id="balance_account_filter_all">
                                 @lang('messages.ledger_accounts_filter_all')
                             </button>
                             <button type="button"
-                                    class="btn btn-outline-secondary balance-account-filter-btn"
+                                    class="btn btn-outline-secondary balance-account-filter-btn {{ ($ledgerAccountMode ?? '') === 'parent' ? 'active' : '' }}"
                                     data-mode="parent"
                                     id="balance_account_filter_parent">
                                 @lang('messages.ledger_accounts_filter_parents')
                             </button>
                             <button type="button"
-                                    class="btn btn-outline-secondary balance-account-filter-btn"
+                                    class="btn btn-outline-secondary balance-account-filter-btn {{ ($ledgerAccountMode ?? '') === 'parent_children' ? 'active' : '' }}"
+                                    data-mode="parent_children"
+                                    id="balance_account_filter_parent_children">
+                                @lang('messages.ledger_accounts_filter_parent_children')
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary balance-account-filter-btn {{ ($ledgerAccountMode ?? '') === 'child' ? 'active' : '' }}"
                                     data-mode="child"
                                     id="balance_account_filter_child">
                                 @lang('messages.ledger_accounts_filter_children')
                             </button>
                         </div>
-                        <div id="balance_account_picker_wrap" class="d-none">
+                        <small id="balance_account_mode_help" class="form-text text-muted mb-2 d-none"></small>
+                        <div id="balance_account_picker_wrap" class="{{ ($ledgerAccountMode ?? 'all') === 'all' ? 'd-none' : '' }}">
                             <div class="balance-parent-picker">
                                 <div id="parent_accounts_tags" class="balance-parent-tags"></div>
                                 <div class="ajax-ac-wrap">
@@ -327,12 +360,13 @@
                         </div>
                         <div id="parent_account_ids_container"></div>
                         <div id="account_ids_container"></div>
-                        <small class="form-text text-muted">@lang('messages.ledger_accounts_unified_help')</small>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">@lang('messages.Fermer')</button>
-                    <button type="submit" id="exportBalancePdfBtn" class="btn btn-primary">
+                    <button type="submit" id="showBalanceBtn" class="btn btn-info">
+                        <i class="fa fa-eye"></i> @lang('messages.accounts_balance_show')
+                    </button>
+                    <button type="button" id="exportBalancePdfBtn" class="btn btn-primary">
                         <i class="fa fa-file-pdf"></i> @lang('messages.export_pdf')
                     </button>
                     <button type="button" id="exportBalanceExcelBtn" class="btn btn-success">
@@ -357,8 +391,13 @@
             var accountSearchUrl = @json(route('admin.journal-entry.search-accounts'));
             var parentPlaceholder = @json(__('messages.ledger_accounts_parent_search_placeholder'));
             var childPlaceholder = @json(__('messages.ledger_accounts_child_search_placeholder'));
+            var parentChildrenHelp = @json(__('messages.ledger_accounts_parent_children_help'));
             var selectedBalanceAccounts = {};
             var balanceAccountMode = 'all';
+
+            function isParentPickerMode(mode) {
+                return mode === 'parent' || mode === 'parent_children';
+            }
 
             function escHtml(text) {
                 return String(text || '')
@@ -381,7 +420,7 @@
                     return;
                 }
 
-                if (balanceAccountMode === 'parent' && item.type !== 'parent') {
+                if (isParentPickerMode(balanceAccountMode) && item.type !== 'parent') {
                     return;
                 }
                 if (balanceAccountMode === 'child' && item.type !== 'child') {
@@ -434,6 +473,7 @@
                     $dropdownParent: $('.balance-parent-picker'),
                     url: accountSearchUrl,
                     minChars: 0,
+                    appendToBody: true,
                     extraParams: function () {
                         return { type: balanceAccountMode };
                     },
@@ -442,7 +482,7 @@
                             if (selectedBalanceAccounts[String(item.id)]) {
                                 return false;
                             }
-                            if (balanceAccountMode === 'parent') {
+                            if (isParentPickerMode(balanceAccountMode)) {
                                 return item.type === 'parent';
                             }
                             if (balanceAccountMode === 'child') {
@@ -475,14 +515,21 @@
 
                 if (mode === 'all') {
                     $('#balance_account_picker_wrap').addClass('d-none');
+                    $('#balance_account_mode_help').addClass('d-none').text('');
                     return;
                 }
 
                 $('#balance_account_picker_wrap').removeClass('d-none');
                 $('#parent_account_search').attr(
                     'placeholder',
-                    mode === 'parent' ? parentPlaceholder : childPlaceholder
+                    isParentPickerMode(mode) ? parentPlaceholder : childPlaceholder
                 );
+
+                if (mode === 'parent_children') {
+                    $('#balance_account_mode_help').removeClass('d-none').text(parentChildrenHelp);
+                } else {
+                    $('#balance_account_mode_help').addClass('d-none').text('');
+                }
 
                 setupBalanceAutocomplete();
 
@@ -492,7 +539,23 @@
             }
 
             $(function () {
-                setBalanceAccountMode('all');
+                var initialMode = @json($ledgerAccountMode ?? 'all');
+                setBalanceAccountMode(initialMode);
+
+                $('#modal_fiscal_year').on('change', function () {
+                    var year = parseInt($(this).val(), 10);
+                    if (!year || year < 2000) {
+                        return;
+                    }
+                    var $start = $('#modal_date_debut');
+                    var $end = $('#modal_date_fin');
+                    if (!$start.val() || String($start.val()).substr(0, 4) !== String(year)) {
+                        $start.val(year + '-01-01');
+                    }
+                    if (!$end.val() || String($end.val()).substr(0, 4) !== String(year)) {
+                        $end.val(year + '-12-31');
+                    }
+                });
 
                 $('.balance-account-filter-btn').on('click', function () {
                     setBalanceAccountMode(String($(this).data('mode') || 'all'));
@@ -516,12 +579,34 @@
                     }
                 });
 
+                $('#exportBalancePdfBtn').on('click', function () {
+                    var $form = $('#exportBalanceForm');
+                    var originalAction = $form.attr('action');
+                    var originalTarget = $form.attr('target');
+                    $form.attr('action', @json(route('admin.accounts-balance.export-pdf')));
+                    $form.attr('target', '_blank');
+                    $form.trigger('submit');
+                    $form.attr('action', originalAction);
+                    if (originalTarget) {
+                        $form.attr('target', originalTarget);
+                    } else {
+                        $form.removeAttr('target');
+                    }
+                });
+
                 $('#exportBalanceExcelBtn').on('click', function () {
                     var $form = $('#exportBalanceForm');
                     var originalAction = $form.attr('action');
+                    var originalTarget = $form.attr('target');
                     $form.attr('action', @json(route('admin.accounts-balance.export-excel')));
+                    $form.attr('target', '_blank');
                     $form.trigger('submit');
                     $form.attr('action', originalAction);
+                    if (originalTarget) {
+                        $form.attr('target', originalTarget);
+                    } else {
+                        $form.removeAttr('target');
+                    }
                 });
             });
         })();

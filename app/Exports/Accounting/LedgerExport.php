@@ -52,7 +52,7 @@ class LedgerExport implements FromCollection, WithHeadings, WithMapping, WithSty
             $query->wherePieceOrDocumentIn($this->pieceDocumentTokens);
         }
 
-        $datas = $query->orderBy('date')->orderBy('id')->get();
+        $datas = $query->orderBy('date')->orderBy('created_at')->orderBy('id')->get();
         $built = LedgerReportBuilder::buildRows($datas);
         $this->ledgerRows = collect($built['ledgerRows']);
     }

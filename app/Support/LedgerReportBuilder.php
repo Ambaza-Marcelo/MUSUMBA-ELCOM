@@ -4,7 +4,6 @@ namespace App\Support;
 
 use App\Models\Accounting\AccountAccount;
 use App\Models\Accounting\AccountParentAccount;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -97,17 +96,12 @@ class LedgerReportBuilder
     }
 
     /**
-     * Tri chronologique par date d'opération puis id.
+     * Tri chronologique : date opération → created_at → id.
+     * Casts les dates string et stabilise les égalités d'horodatage.
      */
     public static function sortByOperationDate(Collection $entries): Collection
     {
-        return $entries->sortBy(function ($entry) {
-            $dateKey = $entry->date
-                ? Carbon::parse($entry->date)->format('YmdHis')
-                : '999999999999';
-
-            return sprintf('%s|%06d', $dateKey, $entry->id);
-        })->values();
+        return ChronologicalProgression::sort($entries, 'asc', 'date', 'created_at');
     }
 
     /**
@@ -148,8 +142,8 @@ class LedgerReportBuilder
             $cj = 1;
 
             foreach ($sorted as $entry) {
-                $debit = (float) ($entry->debit ?? 0);
-                $credit = (float) ($entry->credit ?? 0);
+                $debit = ChronologicalProgression::toFloat($entry->debit ?? 0);
+                $credit = ChronologicalProgression::toFloat($entry->credit ?? 0);
                 $runningBalance += ($debit - $credit);
                 $accountDebit += $debit;
                 $accountCredit += $credit;
@@ -158,12 +152,14 @@ class LedgerReportBuilder
 
                 $balanceDebit = $runningBalance > 0 ? $runningBalance : 0;
                 $balanceCredit = $runningBalance < 0 ? abs($runningBalance) : 0;
-                $operationDate = $entry->date ? Carbon::parse($entry->date)->format('d/m/Y') : '--/--/----';
+                $operationDateObj = ChronologicalProgression::parseDateTime($entry->date ?? null);
+                $createdAtObj = ChronologicalProgression::parseDateTime($entry->created_at ?? null);
+                $operationDate = $operationDateObj ? $operationDateObj->format('d/m/Y') : '--/--/----';
 
                 $rows[] = [
                     'operation_date' => $operationDate,
-                    'created_at' => $entry->created_at
-                        ? Carbon::parse($entry->created_at)->format('d/m/Y H:i')
+                    'created_at' => $createdAtObj
+                        ? $createdAtObj->format('d/m/Y H:i')
                         : '--/--/----',
                     'cj' => $cj,
                     'document_no' => $entry->document_no ?? '',

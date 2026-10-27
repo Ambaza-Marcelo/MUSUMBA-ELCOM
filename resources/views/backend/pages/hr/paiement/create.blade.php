@@ -130,7 +130,7 @@
                         <div class="col-sm-6">
                             <div class="form-group">
                                 <label for="retenue_pret">@lang('Retenue Prêt')</label>
-                                <input type="number" class="form-control" id="retenue_pret" name="retenue_pret" value="0" step="any" min="0" required readonly title="Rempli automatiquement selon l'avance en cours de l'employé">
+                                <input type="number" class="form-control" id="retenue_pret" name="retenue_pret" value="0" step="any" min="0" required>
                             </div>
                         </div>
                         <div class="col-sm-6">
@@ -421,42 +421,12 @@
                 }
             });
 
-            // Fetch loan data and auto-fill retenue_pret
-            fetchLoanData(idEmploye);
         }
 
-        // Function to fetch loan data and auto-fill retenue_pret
-        function fetchLoanData(idEmploye) {
-            if (!idEmploye) {
-                $('#retenue_pret').val(0);
-                return;
-            }
-
-            $.ajax({
-                url: "{{route('admin.hr-paiements.fetch-loan')}}",
-                type: "POST",
-                data: {
-                    employe_id: idEmploye,
-                    date_debut: $('input[name="date_debut"]').val() || '',
-                    _token: '{{csrf_token()}}'
-                },
-                dataType: 'json',
-                success: function (result) {
-                    $('#retenue_pret').val(result.retenue_pret != null ? result.retenue_pret : 0);
-                },
-                error: function() {
-                    $('#retenue_pret').val(0);
-                }
-            });
+        // Retenue prêt reste une saisie manuelle
+        if (!$('#retenue_pret').val()) {
+            $('#retenue_pret').val(0);
         }
-
-        // Auto-fill retenue_pret when date_debut / date_fin changes
-        $('input[name="date_debut"], input[name="date_fin"]').on('change', function() {
-            var employe_id = $('#employe_id').val();
-            if (employe_id) {
-                fetchLoanData(employe_id);
-            }
-        });
     });
 
 

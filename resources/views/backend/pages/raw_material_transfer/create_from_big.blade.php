@@ -94,7 +94,7 @@
                             @foreach($datas as $data)
                             <tr>  
                                 <td> <select class="form-control" name="r_material_id[]" id="r_material_id">
-                                <option value="{{ $data->r_material_id }}" class="form-control">{{ $data->rawMaterial->name }}/{{ $data->rawMaterial->rawMaterialMeasurement->purchase_unit }}</option>
+                                <option value="{{ $data->r_material_id }}" class="form-control">{{ optional($data->rawMaterial)->name }}/{{ optional(optional($data->rawMaterial)->rawMaterialMeasurement)->purchase_unit ?? 'N/A' }}</option>
                                 </select></td>  
                                 <td><input type="number" name="quantity_requisitioned[]" value="{{ $data->quantity_requisitioned }}" class="form-control" step="any"  readonly /></td>  
                                 <td><input type="number" name="price[]" value="{{$data->price}}" class="form-control" step="any" min="0" readonly /></td>

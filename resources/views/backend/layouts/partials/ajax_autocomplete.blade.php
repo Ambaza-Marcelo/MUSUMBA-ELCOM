@@ -4,14 +4,19 @@
     .autocomplete-list,
     .autocomplete-items {
         position: fixed;
-        z-index: 10050;
+        z-index: 20050;
         background: #fff;
         border: 1px solid #ced4da;
-        max-height: 240px;
+        max-height: min(280px, 45vh);
         overflow-y: auto;
-        box-shadow: 0 6px 14px rgba(0,0,0,.12);
+        -webkit-overflow-scrolling: touch;
+        box-shadow: 0 8px 20px rgba(0,0,0,.16);
         display: none;
         box-sizing: border-box;
+        border-radius: 4px;
+    }
+    .ajax-ac-results.ajax-ac-results--body {
+        border-top: 1px solid #ced4da;
     }
     .ajax-ac-results { border-top: none; }
     .autocomplete-list,
@@ -21,10 +26,12 @@
     .ajax-ac-item,
     .autocomplete-list div,
     .autocomplete-items div {
-        padding: 8px 12px;
+        padding: 10px 12px;
         cursor: pointer;
         border-bottom: 1px solid #eee;
-        line-height: 1.25;
+        line-height: 1.35;
+        word-break: break-word;
+        font-size: 0.95rem;
     }
     .ajax-ac-item:last-child,
     .autocomplete-list div:last-child,
@@ -32,7 +39,7 @@
     .ajax-ac-item:hover,
     .ajax-ac-item.is-active,
     .autocomplete-list div:hover,
-    .autocomplete-items div:hover { background: #f8f9fa; }
+    .autocomplete-items div:hover { background: #f1f3f5; }
     .ajax-ac-muted { color: #6c757d; }
     .autocomplete-active {
         background-color: #4CAF50 !important;
@@ -41,6 +48,19 @@
     .autocomplete-wrapper,
     .autocomplete {
         position: relative;
+    }
+    @media (max-width: 576px) {
+        .ajax-ac-results,
+        .autocomplete-list,
+        .autocomplete-items {
+            max-height: min(220px, 40vh);
+            font-size: 0.9rem;
+        }
+        .ajax-ac-item,
+        .autocomplete-list div,
+        .autocomplete-items div {
+            padding: 12px 14px;
+        }
     }
 </style>
 
@@ -79,14 +99,39 @@
             position: function($input, $list){
                 if (!$input || !$input.length || !$list || !$list.length) return;
                 var rect = $input[0].getBoundingClientRect();
-                $list.css({
+                var vw = window.innerWidth || document.documentElement.clientWidth;
+                var vh = window.innerHeight || document.documentElement.clientHeight;
+                var gap = 2;
+                var width = Math.max(rect.width, 180);
+                var left = rect.left;
+                if (left + width > vw - 8) left = Math.max(8, vw - width - 8);
+                if (left < 8) left = 8;
+                if (width > vw - 16) width = vw - 16;
+
+                var spaceBelow = vh - rect.bottom - 8;
+                var spaceAbove = rect.top - 8;
+                var maxH = Math.min(280, Math.floor(vh * 0.45));
+                var openUp = spaceBelow < 140 && spaceAbove > spaceBelow;
+                var avail = openUp ? spaceAbove : spaceBelow;
+                var height = Math.max(120, Math.min(maxH, avail));
+
+                var css = {
                     position: 'fixed',
-                    zIndex: 10050,
-                    top: rect.bottom + 'px',
-                    left: rect.left + 'px',
-                    width: rect.width + 'px',
-                    boxSizing: 'border-box'
-                });
+                    zIndex: 20050,
+                    left: left + 'px',
+                    width: width + 'px',
+                    maxHeight: height + 'px',
+                    boxSizing: 'border-box',
+                    right: 'auto'
+                };
+                if (openUp) {
+                    css.top = 'auto';
+                    css.bottom = (vh - rect.top + gap) + 'px';
+                } else {
+                    css.bottom = 'auto';
+                    css.top = (rect.bottom + gap) + 'px';
+                }
+                $list.css(css);
             },
             positionForList: function($list){
                 if ($list.hasClass('ajax-ac-results--anchored')) return;
@@ -166,10 +211,10 @@
             }
         };
 
-        function bindDropdownPositioning($input, $results, ns, $dropdownParent){
+        function bindDropdownPositioning($input, $results, ns, $dropdownParent, appendToBody){
             function positionResults(){
                 if (!$results.is(':visible')) return;
-                if ($dropdownParent && $dropdownParent.length) {
+                if ($dropdownParent && $dropdownParent.length && !appendToBody) {
                     $results.css({
                         position: 'absolute',
                         top: '100%',
@@ -184,6 +229,10 @@
                 AcDropdown.position($input, $results);
             }
             $(window).on('scroll' + ns + ' resize' + ns, positionResults);
+            var $modal = $input.closest('.modal');
+            if ($modal.length) {
+                $modal.on('scroll' + ns, positionResults);
+            }
             return positionResults;
         }
 
@@ -191,6 +240,10 @@
             var $input = opts.$input;
             var $hidden = opts.$hidden || null;
             var $dropdownParent = opts.$dropdownParent || null;
+            var appendToBody = opts.appendToBody;
+            if (appendToBody == null) {
+                appendToBody = $input.closest('.modal').length > 0;
+            }
             var url = opts.url;
             var minChars = (opts.minChars != null) ? opts.minChars : 1;
             var extraParams = opts.extraParams || null;
@@ -209,19 +262,31 @@
                 $wrap = $input.closest('.ajax-ac-wrap');
             }
             var $results = $wrap.find('.ajax-ac-results');
+            if (!$results.length && appendToBody) {
+                $results = $('body > .ajax-ac-results[data-for="' + ($input.attr('id') || '') + '"]');
+            }
             if (!$results.length){
                 $results = $('<div class="ajax-ac-results" role="listbox"></div>');
-                $wrap.append($results);
+                if (appendToBody) {
+                    $results
+                        .addClass('ajax-ac-results--body')
+                        .attr('data-for', $input.attr('id') || '')
+                        .appendTo(document.body);
+                } else {
+                    $wrap.append($results);
+                }
+            } else if (appendToBody && !$results.parent().is('body')) {
+                $results.addClass('ajax-ac-results--body').appendTo(document.body);
             }
-            if ($dropdownParent && $dropdownParent.length) {
+            if ($dropdownParent && $dropdownParent.length && !appendToBody) {
                 $results.addClass('ajax-ac-results--anchored').appendTo($dropdownParent);
             }
 
             var activeIndex = -1;
             var lastResults = [];
             var ns = '.ajaxAc' + ($input.attr('id') || Math.random().toString(36).slice(2));
-            var $interactionRoot = ($dropdownParent && $dropdownParent.length) ? $dropdownParent : $wrap;
-            var positionResults = bindDropdownPositioning($input, $results, ns, $dropdownParent);
+            var $interactionRoot = ($dropdownParent && $dropdownParent.length && !appendToBody) ? $dropdownParent : $wrap;
+            var positionResults = bindDropdownPositioning($input, $results, ns, $dropdownParent, appendToBody);
 
             function close(){
                 $results.hide().empty();
@@ -273,6 +338,8 @@
                     Object.keys(add).forEach(function(k){ params[k] = add[k]; });
                 }
 
+                openWithHtml('<div class="ajax-ac-item ajax-ac-muted">Recherche...</div>');
+
                 $.get(url, params, function(data){
                     var results = (data && data.results) ? data.results : [];
                     if (typeof filterResults === 'function') {
@@ -296,8 +363,10 @@
 
             $input.off('input' + ns + ' focus' + ns + ' keydown' + ns + ' blur' + ns);
             $interactionRoot.off('mousedown' + ns);
+            $results.off('mousedown' + ns);
             $(document).off('click' + ns);
             $(window).off('scroll' + ns + ' resize' + ns);
+            $input.closest('.modal').off('scroll' + ns);
 
             $input.on('input' + ns, doSearch);
             $input.on('focus' + ns, function(){
@@ -326,20 +395,26 @@
                 }
             });
 
-            $interactionRoot.on('mousedown' + ns, '.ajax-ac-item[data-idx]', function(e){
+            function onItemMouseDown(e){
                 e.preventDefault();
                 var idx = parseInt($(this).data('idx'), 10);
                 if (!isNaN(idx) && lastResults[idx]){
                     choose(lastResults[idx]);
                 }
-            });
+            }
+            $interactionRoot.on('mousedown' + ns, '.ajax-ac-item[data-idx]', onItemMouseDown);
+            $results.on('mousedown' + ns, '.ajax-ac-item[data-idx]', onItemMouseDown);
 
             $input.on('blur' + ns, function(){
                 setTimeout(close, 200);
             });
 
             $(document).on('click' + ns, function(ev){
-                if (!$.contains($interactionRoot[0], ev.target)) close();
+                var t = ev.target;
+                if ($.contains($interactionRoot[0], t)) return;
+                if ($results[0] && $.contains($results[0], t)) return;
+                if ($input[0] === t || $.contains($wrap[0], t)) return;
+                close();
             });
         };
 
@@ -352,6 +427,10 @@
             var renderItem = opts.renderItem || function(item){
                 return '<div><strong>' + esc(item.text || '') + '</strong></div>';
             };
+            var appendToBody = opts.appendToBody;
+            if (appendToBody == null) {
+                appendToBody = $input.closest('.modal').length > 0;
+            }
 
             if (!$input || !$input.length) return;
 
@@ -361,15 +440,27 @@
                 $wrap = $input.closest('.ajax-ac-wrap');
             }
             var $results = $wrap.find('.ajax-ac-results');
+            if (!$results.length && appendToBody) {
+                $results = $('body > .ajax-ac-results[data-for="' + ($input.attr('id') || '') + '"]');
+            }
             if (!$results.length){
                 $results = $('<div class="ajax-ac-results" role="listbox"></div>');
-                $wrap.append($results);
+                if (appendToBody) {
+                    $results
+                        .addClass('ajax-ac-results--body')
+                        .attr('data-for', $input.attr('id') || '')
+                        .appendTo(document.body);
+                } else {
+                    $wrap.append($results);
+                }
+            } else if (appendToBody && !$results.parent().is('body')) {
+                $results.addClass('ajax-ac-results--body').appendTo(document.body);
             }
 
             var activeIndex = -1;
             var lastResults = [];
             var ns = '.ajaxLocal' + ($input.attr('id') || Math.random().toString(36).slice(2));
-            var positionResults = bindDropdownPositioning($input, $results, ns);
+            var positionResults = bindDropdownPositioning($input, $results, ns, null, appendToBody);
 
             function close(){
                 $results.hide().empty();
@@ -458,8 +549,10 @@
 
             $input.off('input' + ns + ' focus' + ns + ' keydown' + ns + ' blur' + ns);
             $wrap.off('mousedown' + ns);
+            $results.off('mousedown' + ns);
             $(document).off('click' + ns);
             $(window).off('scroll' + ns + ' resize' + ns);
+            $input.closest('.modal').off('scroll' + ns);
 
             $input.on('input' + ns, debouncedFilter);
             $input.on('focus' + ns, function(){
@@ -488,20 +581,25 @@
                 }
             });
 
-            $wrap.on('mousedown' + ns, '.ajax-ac-item[data-idx]', function(e){
+            function onLocalItemMouseDown(e){
                 e.preventDefault();
                 var idx = parseInt($(this).data('idx'), 10);
                 if (!isNaN(idx) && lastResults[idx]){
                     choose(lastResults[idx]);
                 }
-            });
+            }
+            $wrap.on('mousedown' + ns, '.ajax-ac-item[data-idx]', onLocalItemMouseDown);
+            $results.on('mousedown' + ns, '.ajax-ac-item[data-idx]', onLocalItemMouseDown);
 
             $input.on('blur' + ns, function(){
                 setTimeout(close, 200);
             });
 
             $(document).on('click' + ns, function(ev){
-                if (!$.contains($wrap[0], ev.target)) close();
+                var t = ev.target;
+                if ($.contains($wrap[0], t)) return;
+                if ($results[0] && $.contains($results[0], t)) return;
+                close();
             });
         };
 

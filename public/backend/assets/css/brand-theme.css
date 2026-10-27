@@ -1,0 +1,68 @@
+/* MUSUMBA ELCOM — Brand Identity (PDF)
+   Primaire : #eba91b · #000000 · #ffffff · #a7a9ad
+   Secondaire : #eeeff8 · #d3d6e0 · #bdbfcc · #6f7180 · #3f424c · #1e1d24
+   Typo : Montserrat (Bold / Medium)
+*/
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap');
+
+:root {
+    --brand-yellow: #eba91b;
+    --brand-yellow-hot: #f0b429;
+    --brand-black: #000000;
+    --brand-white: #ffffff;
+    --brand-gray: #a7a9ad;
+    --brand-surface: #eeeff8;
+    --brand-line: #d3d6e0;
+    --brand-soft: #bdbfcc;
+    --brand-muted: #6f7180;
+    --brand-slate: #3f424c;
+    --brand-ink: #1e1d24;
+    --brand-glow: rgba(235, 169, 27, 0.35);
+
+    --sb-steel: var(--brand-ink);
+    --sb-slate: var(--brand-slate);
+    --sb-edge: #2a2b33;
+    --sb-amber: var(--brand-yellow);
+    --sb-amber-hot: var(--brand-yellow-hot);
+    --sb-text: #c8cad3;
+    --sb-text-dim: var(--brand-muted);
+    --sb-white: var(--brand-white);
+    --sb-width: 280px;
+}
+
+.brand-hazard,
+.plant-hazard {
+    height: 6px;
+    width: 100%;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--brand-black) 0 10px,
+        var(--brand-yellow) 10px 20px
+    );
+}
+
+.brand-hazard--thin { height: 4px; }
+
+.btn-primary,
+.btn-primary:not(:disabled):not(.disabled):active,
+.btn-primary:not(:disabled):not(.disabled).active {
+    background-color: var(--brand-yellow) !important;
+    border-color: var(--brand-yellow) !important;
+    color: var(--brand-black) !important;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+}
+
+.btn-primary:hover,
+.btn-primary:focus {
+    background-color: var(--brand-yellow-hot) !important;
+    border-color: var(--brand-yellow-hot) !important;
+    color: var(--brand-black) !important;
+}
+
+.page-title,
+.main-content-inner h4,
+.card-title,
+body {
+    font-family: 'Montserrat', sans-serif;
+}

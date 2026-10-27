@@ -3,9 +3,10 @@
 namespace App\Exports;
 
 use App\Models\RawMaterialExtraBigReport;
+use App\Support\ChronologicalProgression;
+use App\Support\ProgressiveStockReportBuilder;
 use App\Support\StockReportContext;
 use App\Support\StockReportFilter;
-use App\Support\StockReportInventoryNormalizer;
 use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -25,12 +26,18 @@ class RawMaterialExtraBigStoreReportExport implements FromCollection, WithMappin
             return collect();
         }
 
-        $query = RawMaterialExtraBigReport::with('rawMaterial')
-            ->orderBy('id', 'desc');
+        $config = $this->filterConfig();
 
-        StockReportFilter::apply($query, $request, $this->filterConfig());
+        $query = RawMaterialExtraBigReport::with('rawMaterial');
 
-        return StockReportInventoryNormalizer::normalizeCollection($query->get());
+        StockReportFilter::apply($query, $request, $config);
+        ChronologicalProgression::applyInsertionQueryOrder($query, 'desc');
+
+        return ProgressiveStockReportBuilder::apply($query->get(), [
+            'entity_column' => $config['item_column'] ?? null,
+            'store_column' => $config['store_column'] ?? 'code_store',
+            'display_direction' => 'desc',
+        ]);
     }
 
     public function map($data): array

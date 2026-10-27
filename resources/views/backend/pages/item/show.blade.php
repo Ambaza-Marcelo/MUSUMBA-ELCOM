@@ -91,7 +91,17 @@
                                     <td>{{ $data->rawMaterial->name }}</td>
                                     <td>{{ $data->quantity }}</td>
                                     <td>{{ $data->rawMaterial->rawMaterialMeasurement->production_unit }}</td>
-                                    <td>{{ ($data->rawMaterial->cump / $data->rawMaterial->rawMaterialMeasurement->equivalent)*$data->rawMaterial->rawMaterialMeasurement->sub_equivalent }}</td>
+                                    <td>
+                                        @php
+                                            $equivalent = (float) optional(optional($data->rawMaterial)->rawMaterialMeasurement)->equivalent;
+                                            $cump = (float) optional($data->rawMaterial)->cump;
+                                            $subEquivalent = (float) optional(optional($data->rawMaterial)->rawMaterialMeasurement)->sub_equivalent;
+                                            $unitCost = $equivalent != 0.0
+                                                ? ($cump / $equivalent) * $subEquivalent
+                                                : 0;
+                                        @endphp
+                                        {{ number_format($unitCost, 0, ',', ' ') }}
+                                    </td>
                                 </tr>
                                @endforeach
                             </tbody>

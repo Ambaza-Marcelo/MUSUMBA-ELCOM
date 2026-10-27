@@ -83,21 +83,21 @@ class RawMaterialRequisitionController extends Controller
      */
     public function create()
     {
-        if (is_null($this->user) || !$this->user->can('raw_material_small_inventory.view')) {
-            abort(403, 'Sorry !! You are Unauthorized to enter in this stock !,more information contact Marcelo');
+        if (is_null($this->user) || !$this->user->can('raw_material_requisition.create')) {
+            abort(403, 'Sorry !! You are Unauthorized to create any requisition !');
         }
 
-        $raw_materials  = RawMaterial::orderBy('name','asc')->get();
+        $raw_materials = RawMaterial::with('rawMaterialMeasurement')->orderBy('name', 'asc')->get();
         return view('backend.pages.raw_material_requisition.create', compact('raw_materials'));
     }
 
     public function createFromBig()
     {
-        if (is_null($this->user) || !$this->user->can('raw_material_big_inventory.view')) {
-            abort(403, 'Sorry !! You are Unauthorized to enter in this stock !,more information contact Marcelo');
+        if (is_null($this->user) || !$this->user->can('raw_material_requisition.create')) {
+            abort(403, 'Sorry !! You are Unauthorized to create any requisition !');
         }
 
-        $raw_materials  = RawMaterial::orderBy('name','asc')->get();
+        $raw_materials = RawMaterial::with('rawMaterialMeasurement')->orderBy('name', 'asc')->get();
         return view('backend.pages.raw_material_requisition.create_from_big', compact('raw_materials'));
     }
 
@@ -134,7 +134,7 @@ class RawMaterialRequisitionController extends Controller
             return redirect()->route('admin.production-plan.show', $plan_number);
         }
 
-        $raw_materials = RawMaterial::orderBy('name', 'asc')->get();
+        $raw_materials = RawMaterial::with('rawMaterialMeasurement')->orderBy('name', 'asc')->get();
         return view('backend.pages.raw_material_requisition.create_from_plan', compact('plan', 'planDetails', 'raw_materials'));
     }
 
@@ -159,39 +159,48 @@ class RawMaterialRequisitionController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to create any requisition !');
         }
 
-        $rules = array(
-                'r_material_id.*'  => 'required',
-                'date'  => 'required',
-                'quantity_requisitioned.*'  => 'required',
-                'description'  => 'required'
-            );
+        $rules = [
+            'date' => 'required|date',
+            'description' => 'required|string',
+            'type_store' => 'nullable|string',
+            'quantity_requisitioned' => 'required|array|min:1',
+            'quantity_requisitioned.*' => 'required|numeric|min:0',
+        ];
 
-            $error = Validator::make($request->all(),$rules);
+        $error = Validator::make($request->all(), $rules);
+        if ($error->fails()) {
+            return redirect()->back()->withErrors($error)->withInput();
+        }
 
-            if($error->fails()){
-                return response()->json([
-                    'error' => $error->errors()->all(),
-                ]);
+        $ids = (array) ($request->r_material_id ?? $request->food_id ?? []);
+        $qtyRaw = (array) ($request->quantity_requisitioned ?? []);
+        $r_material_id = [];
+        $quantity_requisitioned = [];
+        foreach ($ids as $idx => $id) {
+            if (!empty($id)) {
+                $r_material_id[] = $id;
+                $quantity_requisitioned[] = $qtyRaw[$idx] ?? 0;
             }
+        }
 
-            try {DB::beginTransaction();
+        if (empty($r_material_id)) {
+            return redirect()->back()
+                ->with('error', 'Veuillez sélectionner au moins une matière première dans la liste.')
+                ->withInput();
+        }
 
-            $r_material_id = $request->r_material_id ?? $request->food_id;
+        try {
+            DB::beginTransaction();
+
             $date = $request->date;
-            $quantity_requisitioned = $request->quantity_requisitioned;
-            $type_store = $request->type_store;
-            $description =$request->description; 
-            $latest = RawMaterialRequisition::latest()->first();
-            if ($latest) {
-               $requisition_no = 'BR' . (str_pad((int)$latest->id + 1, 4, '0', STR_PAD_LEFT)); 
-            }else{
-               $requisition_no = 'BR' . (str_pad((int)0 + 1, 4, '0', STR_PAD_LEFT));  
-            }
+            $type_store = $request->type_store ?: 'md';
+            $description = trim((string) $request->description);
+            $latest = RawMaterialRequisition::orderBy('id', 'desc')->first();
+            $requisition_no = 'BR' . str_pad((int) (($latest->id ?? 0) + 1), 4, '0', STR_PAD_LEFT);
 
-            $requisition_signature = config('app.tin_number_company').Carbon::parse(Carbon::now())->format('YmdHis')."/".$requisition_no;
+            $requisition_signature = config('app.tin_number_company') . Carbon::now()->format('YmdHis') . '/' . $requisition_no;
             $created_by = $this->user->name;
 
-            //create requisition
             $requisition = new RawMaterialRequisition();
             $requisition->date = $date;
             $requisition->requisition_signature = $requisition_signature;
@@ -202,48 +211,50 @@ class RawMaterialRequisitionController extends Controller
             if (!empty($request->production_plan_number)) {
                 $requisition->production_plan_number = $request->production_plan_number;
             }
-            $requisition->created_at = \Carbon\Carbon::now();
             $requisition->save();
 
             if (!empty($request->production_plan_number)) {
                 ProductionPlan::where('prodution_plan_number', $request->production_plan_number)->update(['flag1' => '1']);
             }
-            //insert details of requisition No.
-            for( $count = 0; $count < count($r_material_id); $count++ ){
 
-                $price = RawMaterial::where('id', $r_material_id[$count])->value('purchase_price');
-                $total_value_requisitioned = $quantity_requisitioned[$count] * $price;
-                $data = array(
+            $insert_data = [];
+            for ($count = 0; $count < count($r_material_id); $count++) {
+                $raw = RawMaterial::find($r_material_id[$count]);
+                if (!$raw) {
+                    DB::rollback();
+                    return redirect()->back()
+                        ->with('error', 'Matière première introuvable (ligne ' . ($count + 1) . ').')
+                        ->withInput();
+                }
+
+                $price = (float) ($raw->cump ?: ($raw->purchase_price ?: 0));
+                $qty = (float) $quantity_requisitioned[$count];
+                $insert_data[] = [
                     'r_material_id' => $r_material_id[$count],
                     'date' => $date,
-                    'quantity_requisitioned' => $quantity_requisitioned[$count],
+                    'quantity_requisitioned' => $qty,
                     'price' => $price,
                     'description' => $description,
-                    'total_value_requisitioned' => $total_value_requisitioned,
+                    'total_value_requisitioned' => $qty * $price,
                     'created_by' => $created_by,
                     'requisition_no' => $requisition_no,
                     'type_store' => $type_store,
                     'requisition_signature' => $requisition_signature,
-                    'created_at' => \Carbon\Carbon::now()
-                );
-                $insert_data[] = $data;
+                    'created_at' => Carbon::now(),
+                    'updated_at' => Carbon::now(),
+                ];
             }
-       
-        RawMaterialRequisitionDetail::insert($insert_data);
 
-        DB::commit();
+            RawMaterialRequisitionDetail::insert($insert_data);
+
+            DB::commit();
             session()->flash('success', 'Requisition has been created !!');
             return redirect()->route('admin.raw-material-requisitions.index');
         } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
             DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
+            session()->flash('error', 'Erreur lors de l\'enregistrement : ' . $e->getMessage());
+            return redirect()->back()->withInput();
         }
-
     }
 
     /**
@@ -254,8 +265,16 @@ class RawMaterialRequisitionController extends Controller
      */
     public function show($requisition_no)
     {
-        //
+        if (is_null($this->user) || !$this->user->can('raw_material_requisition.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to view any requisition !');
+        }
+
         $requisition = RawMaterialRequisition::where('requisition_no', $requisition_no)->first();
+        if (is_null($requisition)) {
+            session()->flash('error', 'Requisition not found !!');
+            return redirect()->route('admin.raw-material-requisitions.index');
+        }
+
         $requisitionDetails = RawMaterialRequisitionDetail::with(['rawMaterial.rawMaterialMeasurement'])
             ->where('requisition_no', $requisition_no)->get();
         
@@ -312,62 +331,77 @@ class RawMaterialRequisitionController extends Controller
             return redirect()->route('admin.raw-material-requisitions.index');
         }
 
-        $rules = array(
-            'r_material_id.*'  => 'required',
-            'date'  => 'required',
-            'quantity_requisitioned.*'  => 'required',
-            'description'  => 'required'
-        );
+        $rules = [
+            'date' => 'required|date',
+            'description' => 'required|string',
+            'quantity_requisitioned' => 'required|array|min:1',
+            'quantity_requisitioned.*' => 'required|numeric|min:0',
+        ];
 
         $error = Validator::make($request->all(), $rules);
-
         if ($error->fails()) {
-            return response()->json([
-                'error' => $error->errors()->all(),
-            ]);
+            return redirect()->back()->withErrors($error)->withInput();
+        }
+
+        $ids = (array) ($request->r_material_id ?? $request->food_id ?? []);
+        $qtyRaw = (array) ($request->quantity_requisitioned ?? []);
+        $r_material_id = [];
+        $quantity_requisitioned = [];
+        foreach ($ids as $idx => $id) {
+            if (!empty($id)) {
+                $r_material_id[] = $id;
+                $quantity_requisitioned[] = $qtyRaw[$idx] ?? 0;
+            }
+        }
+
+        if (empty($r_material_id)) {
+            return redirect()->back()
+                ->with('error', 'Veuillez sélectionner au moins une matière première dans la liste.')
+                ->withInput();
         }
 
         try {
             DB::beginTransaction();
 
-            $r_material_id = $request->r_material_id ?? $request->food_id;
             $date = Carbon::parse($request->date);
-            $type_store = $requisition->type_store; // Keep original type_store
-            $quantity_requisitioned = $request->quantity_requisitioned;
-            $description = $request->description;
+            $type_store = $requisition->type_store;
+            $description = trim((string) $request->description);
             $updated_by = $this->user->name;
 
-            // Delete old details
             RawMaterialRequisitionDetail::where('requisition_no', $requisition_no)->delete();
 
-            // Insert updated details
             $insert_data = [];
             for ($count = 0; $count < count($r_material_id); $count++) {
-                $price = RawMaterial::where('id', $r_material_id[$count])->value('purchase_price');
-                $total_value_requisitioned = $quantity_requisitioned[$count] * $price;
-                
-                $data = array(
+                $raw = RawMaterial::find($r_material_id[$count]);
+                if (!$raw) {
+                    DB::rollback();
+                    return redirect()->back()
+                        ->with('error', 'Matière première introuvable (ligne ' . ($count + 1) . ').')
+                        ->withInput();
+                }
+
+                $price = (float) ($raw->cump ?: ($raw->purchase_price ?: 0));
+                $qty = (float) $quantity_requisitioned[$count];
+                $insert_data[] = [
                     'r_material_id' => $r_material_id[$count],
                     'date' => $date,
-                    'quantity_requisitioned' => $quantity_requisitioned[$count],
+                    'quantity_requisitioned' => $qty,
                     'price' => $price,
                     'description' => $description,
-                    'total_value_requisitioned' => $total_value_requisitioned,
-                    'created_by' => $requisition->created_by, // Keep original creator
+                    'total_value_requisitioned' => $qty * $price,
+                    'created_by' => $requisition->created_by,
                     'updated_by' => $updated_by,
                     'requisition_no' => $requisition_no,
                     'type_store' => $type_store,
-                    'requisition_signature' => $requisition->requisition_signature, // Keep original signature
-                    'status' => $requisition->status, // Keep original status
-                    'created_at' => $requisition->created_at, // Keep original created_at
-                    'updated_at' => \Carbon\Carbon::now()
-                );
-                $insert_data[] = $data;
+                    'requisition_signature' => $requisition->requisition_signature,
+                    'status' => $requisition->status,
+                    'created_at' => $requisition->created_at,
+                    'updated_at' => Carbon::now(),
+                ];
             }
 
             RawMaterialRequisitionDetail::insert($insert_data);
 
-            // Update main requisition
             $requisition->date = $date;
             $requisition->description = $description;
             $requisition->updated_by = $updated_by;
@@ -378,7 +412,8 @@ class RawMaterialRequisitionController extends Controller
             return redirect()->route('admin.raw-material-requisitions.index');
         } catch (\Exception $e) {
             DB::rollback();
-            throw $e;
+            session()->flash('error', 'Erreur lors de la mise à jour : ' . $e->getMessage());
+            return redirect()->back()->withInput();
         }
     }
 
@@ -532,7 +567,7 @@ class RawMaterialRequisitionController extends Controller
         $stat = RawMaterialRequisition::where('requisition_no', $requisition_no)->value('status');
         $description = RawMaterialRequisition::where('requisition_no', $requisition_no)->value('description');
         $date = RawMaterialRequisition::where('requisition_no', $requisition_no)->value('date');
-        if($stat == 2 && $stat == 3 || $stat == 4 || $stat == 5){
+        if (in_array((int)$stat, [2, 3, 4, 5, 6], true)) {
            $requisition_no = RawMaterialRequisition::where('requisition_no', $requisition_no)->value('requisition_no');
            $requisition_signature = RawMaterialRequisition::where('requisition_no', $requisition_no)->value('requisition_signature');
            $totalValue = DB::table('raw_material_requisition_details')

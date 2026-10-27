@@ -210,8 +210,7 @@
     <table class="top-header">
         <tr>
             <td style="width: 50%;" class="doc-ref">
-                {{ __('messages.Accounting') }}<br>
-                <span class="filter-label">{{ $filterLabel }}</span>
+                {{ __('messages.Accounting') }}
             </td>
             <td style="width: 50%;" align="right">
                 <div class="period-box">
@@ -225,7 +224,9 @@
 
     <div class="title-block">
         <h1>{{ __('messages.accounts_balance_title') }}</h1>
-        <h2>{{ $scopeLabel }}</h2>
+        @if($scopeLabel !== __('messages.accounts_balance_complete') && $scopeLabel !== __('messages.ledger_all_accounts'))
+            <h2>{{ $scopeLabel }}</h2>
+        @endif
     </div>
 
     <div class="print-date">

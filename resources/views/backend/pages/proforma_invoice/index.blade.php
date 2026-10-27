@@ -192,18 +192,6 @@
                                                 <a class="btn btn-secondary btn-sm text-white" href="{{ route('admin.proforma-invoice.print', $proforma_invoice->proforma_number) }}" target="_blank" title="Imprimer (PDF BIF)"><i class="fa fa-print"></i></a>
                                                 <a class="btn btn-outline-secondary btn-sm" href="{{ route('admin.proforma-invoice.print-usd', $proforma_invoice->proforma_number) }}" target="_blank" title="Imprimer (PDF USD)"><i class="fa fa-dollar-sign"></i></a>
                                             @endif
-                                            @if (!$hasValidatedInvoice)
-                                                @if (Auth::guard('admin')->user()->can('proforma_invoice.delete'))
-                                                    <a class="btn btn-danger btn-sm text-white" href="{{ route('admin.proforma-invoice.destroy', $proforma_invoice->proforma_number) }}"
-                                                        onclick="event.preventDefault(); if(confirm(@json(__('messages.delete_proforma_confirm')))) { document.getElementById('delete-form-{{ $proforma_invoice->proforma_number }}').submit(); }" title="@lang('messages.delete')">
-                                                        <i class="fa fa-trash"></i>
-                                                    </a>
-                                                    <form id="delete-form-{{ $proforma_invoice->proforma_number }}" action="{{ route('admin.proforma-invoice.destroy', $proforma_invoice->proforma_number) }}" method="POST" style="display: none;">
-                                                        @method('DELETE')
-                                                        @csrf
-                                                    </form>
-                                                @endif
-                                            @endif
                                         </div>
                                     </td>
                                 </tr>

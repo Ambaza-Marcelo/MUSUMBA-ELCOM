@@ -322,28 +322,10 @@ class GoodStoreInventoryController extends Controller
         }
     }
 
-    public function destroy($inventory_no)
+        public function destroy($inventory_no)
     {
-        if (is_null($this->user) || !$this->user->can('material_big_inventory.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any inventory !');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $inventory = GoodsStoreInventory::where('inventory_no', $inventory_no)->first();
-            if (!is_null($inventory)) {
-                $inventory->delete();
-                GoodsStoreInventoryDetail::where('inventory_no', $inventory_no)->delete();
-            }
-
-            DB::commit();
-            session()->flash('success', 'Inventaire marchandises supprimé.');
-            return back();
-        } catch (\Exception $e) {
-            DB::rollback();
-            throw $e;
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.goods-store-inventory.index');
     }
 
     public function bon_inventaire($inventory_no)

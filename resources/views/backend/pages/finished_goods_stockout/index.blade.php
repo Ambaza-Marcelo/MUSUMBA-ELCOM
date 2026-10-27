@@ -40,6 +40,9 @@
                 <div class="card-body">
                     <h4 class="header-title float-left">@lang('messages.Sorties Produits Finis')</h4>
                     <p class="float-right mb-2">
+                        @if (Auth::guard('admin')->user()->can('account_journal_entry.edit'))
+                            <a class="btn btn-warning btn-sm text-dark" href="{{ route('admin.stockout-regularization.index', ['module' => 'finished_goods']) }}">Rectification compte d'ajustement</a>
+                        @endif
                         @if (Auth::guard('admin')->user()->can('finished_goods_stockout.create'))
                             <a class="btn btn-primary text-white" href="{{ route('admin.finished-goods-stockouts.create') }}">@lang('messages.new')</a>
                         @endif

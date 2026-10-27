@@ -33,7 +33,12 @@
                                 <span class="badge badge-secondary badge-lg mt-2"><i class="fa fa-info-circle"></i> Statut : {{ $order->status }}</span>
                             @endif
                         </div>
-                        <div>
+                        <div class="d-flex align-items-center">
+                            @if (Auth::guard('admin')->user()->can('material_supplier_order.create'))
+                            <a href="{{ route('admin.material-supplier-orders.materialSupplierOrder', $order->order_no) }}" class="mr-2">
+                                <img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.download_then_print')">
+                            </a>
+                            @endif
                             <a href="{{ route('admin.material-supplier-orders.index') }}" class="btn btn-secondary">
                                 <i class="fa fa-arrow-left"></i> Retour à la liste
                             </a>

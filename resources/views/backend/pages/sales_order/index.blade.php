@@ -96,10 +96,6 @@
                                                     <a class="btn btn-warning btn-sm text-white" href="#" onclick="event.preventDefault(); document.getElementById('approve-{{ $so->sales_order_number }}').submit();" title="@lang('messages.Approuver')"><i class="fa fa-thumbs-up"></i></a>
                                                     <form id="approve-{{ $so->sales_order_number }}" action="{{ route('admin.sales-order.approve', $so->sales_order_number) }}" method="POST" style="display:none;">@csrf @method('PUT')</form>
                                                 @endif
-                                                @if(Auth::guard('admin')->user()->can('sales_order.delete'))
-                                                    <a class="btn btn-danger btn-sm text-white" href="#" onclick="if(confirm({{ json_encode(__('messages.confirm_delete_sales_order')) }})) { event.preventDefault(); document.getElementById('delete-{{ $so->sales_order_number }}').submit(); }" title="@lang('messages.delete')"><i class="fa fa-trash"></i></a>
-                                                    <form id="delete-{{ $so->sales_order_number }}" action="{{ route('admin.sales-order.destroy', $so->sales_order_number) }}" method="POST" style="display:none;">@csrf @method('DELETE')</form>
-                                                @endif
                                             @endif
                                             @if(Auth::guard('admin')->user()->can('sales_order.view'))
                                                 <a class="btn btn-secondary btn-sm text-white" href="{{ route('admin.sales-order.print', $so->sales_order_number) }}" target="_blank" title="Imprimer (PDF)"><i class="fa fa-print"></i></a>

@@ -116,7 +116,7 @@
                                 <td>
                                     <select class="form-control" name="r_material_id[]" required>
                                         <option value="{{ $requisitionDetail->r_material_id }}" selected>
-                                            {{ $requisitionDetail->rawMaterial->name }}/{{ $requisitionDetail->rawMaterial->rawMaterialMeasurement->purchase_unit ?? 'N/A' }}
+                                            {{ optional($requisitionDetail->rawMaterial)->name }}/{{ optional(optional($requisitionDetail->rawMaterial)->rawMaterialMeasurement)->purchase_unit ?? 'N/A' }}
                                         </option>
                                     </select>
                                 </td>  

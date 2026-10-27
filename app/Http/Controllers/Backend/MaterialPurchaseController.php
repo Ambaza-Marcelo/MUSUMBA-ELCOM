@@ -595,13 +595,14 @@ class MaterialPurchaseController extends Controller
         }
 
         $setting = DB::table('settings')->orderBy('created_at','desc')->first();
-        $stat = MaterialPurchase::where('purchase_no', $purchase_no)->value('status');
-        $description = MaterialPurchase::where('purchase_no', $purchase_no)->value('description');
-        $date = MaterialPurchase::where('purchase_no', $purchase_no)->value('date');
-        $data = MaterialPurchase::where('purchase_no', $purchase_no)->first();
-        if($stat == 2 || $stat == 3 || $stat == 4 || $stat == 5 || $stat == 6 || $stat == -3){
-           $purchase_no = MaterialPurchase::where('purchase_no', $purchase_no)->value('purchase_no');
-           $purchase_signature = MaterialPurchase::where('purchase_no', $purchase_no)->value('purchase_signature');
+        $data = MaterialPurchase::with('supplier')->where('purchase_no', $purchase_no)->first();
+        if (!$data) {
+            session()->flash('error', 'Demande d\'achat introuvable.');
+            return back();
+        }
+        $description = $data->description;
+        $date = $data->date;
+        $purchase_signature = $data->purchase_signature;
            $totalValue = DB::table('material_purchase_details')
             ->where('purchase_no', '=', $purchase_no)
             ->sum('total_value');
@@ -613,7 +614,6 @@ class MaterialPurchaseController extends Controller
             ->sum('vat');
 
            $datas = MaterialPurchaseDetail::with(['material.materialMeasurement', 'item', 'supplier'])->where('purchase_no', $purchase_no)->get();
-           $data = MaterialPurchase::with('supplier')->where('purchase_no', $purchase_no)->first();
            $amountInWords = \App\Helpers\NumberToWordsFrench::convert((int) round($totalValue)) . ' francs burundais';
            $pdf = PDF::setOptions(['defaultFont' => 'dejavu sans', 'isRemoteEnabled' => true])
             ->loadView('backend.pages.document.material_purchase', compact('datas','purchase_no','setting','description','date','purchase_signature','totalValue','price_nvat','vat','data','amountInWords'), [], 'UTF-8');
@@ -621,16 +621,7 @@ class MaterialPurchaseController extends Controller
            Storage::put('public/pdf/material_purchase/'.'FICHE_DEMANDE_ACHAT_'.$purchase_no.'.pdf', $pdf->output());
 
            // download pdf file
-           return $pdf->download('FICHE DEMANDE ACHAT '.$purchase_no.'.pdf'); 
-           
-        }else if ($stat == -1) {
-            session()->flash('error', 'Purchase has been rejected !!');
-            return back();
-        }else{
-            session()->flash('error', 'wait until purchase will be validated !!');
-            return back();
-        }
-        
+           return $pdf->download('FICHE DEMANDE ACHAT '.$purchase_no.'.pdf');
     }
 
     public function print($purchase_no) { return $this->materialPurchase($purchase_no); }
@@ -664,32 +655,9 @@ class MaterialPurchaseController extends Controller
      */
     public function destroy($purchase_no)
     {
-        if (is_null($this->user) || !$this->user->can('material_purchase.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any purchase !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $purchase = MaterialPurchase::where('purchase_no',$purchase_no)->first();
-        if (!is_null($purchase)) {
-            $purchase->delete();
-            MaterialPurchaseDetail::where('purchase_no',$purchase_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'Purchase has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
-
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.material-purchases.index');
     }
 
 }

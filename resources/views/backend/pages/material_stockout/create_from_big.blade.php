@@ -114,8 +114,7 @@
                                 <div class="form-group">
                                     <label for="item_movement_type">@lang('messages.Type de Sortie')</label>
                                     <select class="form-control" name="item_movement_type" id="item_movement_type" required>
-                                    <option disabled="disabled" selected="selected">@lang('messages.Merci de choisir')</option>
-                                        <option value="SN">@lang('messages.Sortie Normale')</option>
+                                    <option disabled="disabled">@lang('messages.Merci de choisir')</option>
                                         @if (Auth::guard('admin')->user()->can('material_stockout.reject'))
                                         <option value="SP">@lang('messages.Sortie Perte')</option>
                                         <option value="SV">@lang('messages.Sortie Vol')</option>
@@ -123,8 +122,7 @@
                                         <option value="SC">@lang('messages.Sortie Casse')</option>
                                         <option value="SAJ">@lang('messages.Sortie Ajustement')</option>
                                         @endif
-                                        <option value="ST">@lang('messages.Sortie Transfert')</option>
-                                        <option value="SAU">@lang('messages.Sortie Autre')</option>
+                                        <option value="SAU" selected="selected">@lang('messages.Sortie Autre')</option>
                                 </select>
                                 </div>
                             </div>

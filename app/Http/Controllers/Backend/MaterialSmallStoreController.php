@@ -247,12 +247,9 @@ class MaterialSmallStoreController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+        public function destroy($id)
     {
-        if (is_null($this->user) || !$this->user->can('material_small_store.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any material store !');
-        }
-
-        
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.material-small-store.index');
     }
 }

@@ -55,7 +55,7 @@
                 <h4 class="page-title pull-left">@lang('messages.Validation Credit de facture')</h4>
                 <ul class="breadcrumbs pull-left">
                     <li><a href="{{ route('admin.dashboard') }}">@lang('messages.dashboard')</a></li>
-                    <li><a href="{{ route('admin.credit-invoices.list') }}">@lang('messages.list')</a></li>
+                    <li><a href="{{ route('admin.credits.receivables.index') }}">@lang('messages.list')</a></li>
                     <li><span>@lang('messages.Validation Credit de facture')</span></li>
                 </ul>
             </div>
@@ -74,7 +74,7 @@
                     <h4 class="header-title">@lang('messages.Validation paiement Facture')</h4>
                     @include('backend.layouts.partials.messages')
                     
-                    <form action="{{ route('admin.facture-credit.payer',$facture->invoice_number) }}" method="POST">
+                    <form action="{{ route('admin.credits.payments.update',$facture->invoice_number) }}" method="POST">
                         @csrf
                         @method('PUT')
                         @if($facture->employe_id)
@@ -182,7 +182,7 @@
                             <tr>
                                 <td><input type="text" value="{{ \Carbon\Carbon::parse($data->invoice_date)->format('d/m/Y') }}" class="form-control" readonly/></td>   
                                 <td><input type="text" value="{{ $data->invoice_number }}" class="form-control" readonly/></td>  
-                                <td><input type="text" name="item_designation[]" value="@if($data->drink_id) {{ $data->drink->name }} @elseif($data->food_item_id) {{ $data->foodItem->name }} @elseif($data->barrist_item_id) {{ $data->barristItem->name }} @elseif($data->bartender_id) {{ $data->bartenderItem->name }} @elseif($data->salle_id) {{ $data->salle->name }} @elseif($data->service_id) {{ $data->service->name }} @elseif($data->table_id) {{ $data->table->name }} @endif" class="form-control" readonly /></td>  
+                                <td><input type="text" name="item_designation[]" value="{{ $data->item_designation ?? optional($data->item)->name }}" class="form-control" readonly /></td>  
                                 <td><input type="text" step='any' min='0' name="item_quantity[]" value="{{ $data->item_quantity }}" class="form-control" readonly /></td>  
                                 <td><input type="text" step='any' min='0' name="item_price[]" value="{{ number_format($data->item_price, 0, ',', ' ') }} BIF" class="form-control" readonly /></td>
                                 <td><input type="text" step='any' min='0' name="item_price_nvat[]" value="{{ number_format($data->item_price_nvat, 2, ',', ' ') }} BIF" class="form-control" readonly/></td>
@@ -194,10 +194,8 @@
                             @endforeach
                         </table> 
                         <div>
-                            <label for="note_recouvrement"></label>
-                            <textarea name="note_recouvrement" id="note_recouvrement" class="form-control" required>
-                                PAIEMENT
-                            </textarea>
+                            <label for="note_recouvrement">Description du paiement</label>
+                            <textarea name="note_recouvrement" id="note_recouvrement" class="form-control" required>{{ old('note_recouvrement') }}</textarea>
                         </div>
                         <button type="submit" class="btn btn-primary mt-4 pr-4 pl-4">@lang('messages.VALIDER CREDIT')</button>
                     </form>
@@ -212,6 +210,45 @@
     <script type="text/javascript">
 
     var currentAccountType = null;
+    var nextTrancheNumber = {{ (int) $next_tranche_number }};
+    var autoNoteValues = [];
+
+    function trancheLabel(trancheNumber) {
+        if (trancheNumber === 1) {
+            return "1ere tranche";
+        }
+
+        return trancheNumber + "eme tranche";
+    }
+
+    function getDefaultRecoveryNote(paymentType) {
+        if (paymentType === '1') {
+            return "PAIEMENT PARTIEL - " + trancheLabel(nextTrancheNumber);
+        }
+
+        if (paymentType === '2') {
+            return nextTrancheNumber > 1
+                ? "PAIEMENT TOTAL - " + trancheLabel(nextTrancheNumber) + " (solde)"
+                : "PAIEMENT TOTAL";
+        }
+
+        return "PAIEMENT";
+    }
+
+    function syncRecoveryNote() {
+        var $noteField = $('#note_recouvrement');
+        var currentValue = ($noteField.val() || '').trim();
+        var paymentType = $('#etat_recouvrement').val();
+        var defaultValue = getDefaultRecoveryNote(paymentType);
+
+        if (currentValue === '' || autoNoteValues.indexOf(currentValue) !== -1) {
+            $noteField.val(defaultValue);
+        }
+
+        if (autoNoteValues.indexOf(defaultValue) === -1) {
+            autoNoteValues.push(defaultValue);
+        }
+    }
 
     // Handle payment mode change (Cash or Bank)
     $('#statut_paied').change(function () { 
@@ -264,7 +301,9 @@
         
         if ($(this).val() === '2'){ // Total Payment
             var totalAmount = {{ $total_amount }};
+            var resteCredit = {{ $reste_credit }};
             var formattedTotal = formatCurrency(totalAmount);
+            var formattedReste = formatCurrency(resteCredit);
             
             var montant_total_credit = "<div class='col-md-4'>"+
                                 "<label for='montant_total_credit'>@lang('messages.Montant Total a payer')<strong style='color: red;'>*</strong></label>"+
@@ -273,8 +312,8 @@
                             "</div>";
             var montant_recouvre = "<div class='col-md-4'>"+
                                 "<label for='montant_recouvre'>@lang('messages.Montant paye')<strong style='color: red;'>*</strong></label>"+
-                                    "<input type='number' name='montant_recouvre' value='" + totalAmount + "' class='form-control montant-input' min='0' max='" + totalAmount + "' required/>"+
-                                    "<small class='form-text text-muted montant-formatted'>@lang('messages." + formattedTotal + "')</small>"+
+                                    "<input type='number' name='montant_recouvre' value='" + resteCredit + "' class='form-control montant-input' min='0.01' step='0.01' max='" + resteCredit + "' required/>"+
+                                    "<small class='form-text text-muted montant-formatted'>@lang('messages." + formattedReste + "')</small>"+
                             "</div>";
             
             $("#type_paiement").append([montant_total_credit, montant_recouvre]);
@@ -293,8 +332,8 @@
                             "</div>";
             var montant_recouvre = "<div class='col-md-4'>"+
                                 "<label for='montant_recouvre'>@lang('messages.Montant paye')<strong style='color: red;'>*</strong></label>"+
-                                    "<input type='number' name='montant_recouvre' value='" + resteCredit + "' min='0' max='" + resteCredit + "' class='form-control montant-input' required/>"+
-                                    "<small class='form-text text-muted montant-formatted'>@lang('messages." + formattedReste + "')</small>"+
+                                    "<input type='number' name='montant_recouvre' value='' min='0.01' step='0.01' max='" + resteCredit + "' class='form-control montant-input' placeholder='Saisir un montant inferieur au reste a payer' required/>"+
+                                    "<small class='form-text text-muted montant-formatted'>Maximum autorise: " + formattedReste + "</small>"+
                             "</div>";
             
             $("#type_paiement").append([montant_total_credit, montant_recouvre]);
@@ -302,6 +341,7 @@
         
         // Initialize montant input formatter
         initializeMontantFormatter();
+        syncRecoveryNote();
     })
     .trigger( "change" );
 
@@ -412,6 +452,7 @@
     $(document).ready(function() {
         initializeAutocomplete();
         initializeMontantFormatter();
+        syncRecoveryNote();
     });
 
 </script>

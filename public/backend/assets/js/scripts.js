@@ -42,11 +42,76 @@
     $("#menu").metisMenu();
 
     /*================================
-    slimscroll activation
+    sidebar menu scroll (native — menus longs + mobile)
     ==================================*/
-    $(".menu-inner").slimScroll({
-        height: "auto"
+    function initSidebarScroll() {
+        var $menuInner = $(".main-menu .menu-inner");
+        if (!$menuInner.length) {
+            return;
+        }
+
+        var $wrapper = $menuInner.parent(".slimScrollDiv");
+        if ($wrapper.length) {
+            $menuInner.insertAfter($wrapper);
+            $wrapper.remove();
+        }
+
+        $menuInner.css({
+            height: "",
+            maxHeight: "",
+            overflow: "auto"
+        });
+    }
+
+    function scrollMenuItemIntoView($li) {
+        if (!$li || !$li.length) {
+            return;
+        }
+
+        var $scroll = $(".main-menu .menu-inner");
+        if (!$scroll.length) {
+            return;
+        }
+
+        var scrollTop = $scroll.scrollTop();
+        var viewHeight = $scroll.innerHeight();
+        var itemTop = $li.position().top + scrollTop;
+        var itemBottom = itemTop + $li.outerHeight(true);
+
+        if (itemBottom > scrollTop + viewHeight - 16) {
+            $scroll.stop(true).animate({
+                scrollTop: itemBottom - viewHeight + 24
+            }, 220);
+        } else if (itemTop < scrollTop + 12) {
+            $scroll.stop(true).animate({
+                scrollTop: Math.max(0, itemTop - 12)
+            }, 220);
+        }
+    }
+
+    initSidebarScroll();
+
+    $("#menu").on("shown.metisMenu", function(e) {
+        var $li = $(e.target).closest("li").first();
+        setTimeout(function() {
+            scrollMenuItemIntoView($li);
+        }, 60);
     });
+
+    $("#menu").on("click", "a.has-arrow", function() {
+        var $li = $(this).parent("li");
+        setTimeout(function() {
+            scrollMenuItemIntoView($li);
+        }, 360);
+    });
+
+    $(window).on("resize orientationchange", function() {
+        initSidebarScroll();
+    });
+
+    /*================================
+    slimscroll activation (notifications etc.)
+    ==================================*/
     $(".nofity-list").slimScroll({
         height: "435px"
     });

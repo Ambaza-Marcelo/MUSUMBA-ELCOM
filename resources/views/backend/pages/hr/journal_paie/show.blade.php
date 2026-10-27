@@ -88,66 +88,61 @@
                         <table id="dataTable" class="text-center table table-bordered">
                             <thead class="bg-light text-capitalize">
                                 <tr>
-                                    <th>#</th>
-                                    <th>Mois/Annee</th>
-                                    <th>Matricule</th>
-                                    <th>Employe</th>
-                                    <th>Salaire de base</th>
-                                    <th>Alloc. familiale</th>
-                                    <th>Ind. logement</th>
-                                    <th>Ind. deplacement</th>
-                                    <th>Prime fonction</th>
-                                    <th>Salaire brut</th>
-                                    <th>INSS Employe</th>
-                                    <th>INSS Employeur</th>
-                                    <th>Ass. Mal. Employe</th>
-                                    <th>Ass. Mal. Employeur</th>
-                                    <th>IRE</th>
-                                    <th>Retenue pret</th>
-                                    <th>Soins medicaux</th>
-                                    <th>Autres retenues</th>
-                                    <th>Total retenues</th>
-                                    <th>Salaire net</th>
+                                    <th>N°</th>
+                                    <th>NOM et PRENOM</th>
+                                    <th>JT</th>
+                                    <th>SAL, BASE</th>
+                                    <th>All fam</th>
+                                    <th>Ind Log</th>
+                                    <th>Ind Dépl</th>
+                                    <th>Heure suppl</th>
+                                    <th>AUT_IND</th>
+                                    <th>Prim /Fonx°</th>
+                                    <th>REM_BRUT</th>
+                                    <th>INSS_PENS</th>
+                                    <th>INSS_RSQ</th>
+                                    <th>Santé QPP</th>
+                                    <th>CHARGE_EMPL</th>
+                                    <th>INSS_TRAV</th>
+                                    <th>Santé_TRAV</th>
+                                    <th>IRE Retenu</th>
+                                    <th>AVANCE</th>
+                                    <th>Soins méd</th>
+                                    <th>Aut retenues</th>
+                                    <th>TOT_RETENU</th>
+                                    <th>NET A PAYER</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                @foreach ($journal_paies as $jp)
                                @php
-                                    $brut = (float)$jp->somme_salaire_base
-                                        + (float)$jp->allocation_familiale
-                                        + (float)$jp->indemnite_logement
-                                        + (float)$jp->indemnite_deplacement
-                                        + (float)$jp->prime_fonction;
-                                    $totalRetenue = (float)$jp->somme_cotisation_inss
-                                        + (float)$jp->assurance_maladie_employe
-                                        + (float)$jp->somme_impot
-                                        + (float)$jp->retenue_pret
-                                        + (float)$jp->soins_medicaux
-                                        + (float)$jp->autre_retenue;
-                                    $net = $brut - $totalRetenue;
+                                    $paie = \App\Support\PayrollCalculator::fromPaiement($jp);
                                @endphp
                                <tr>
                                     <td>{{ $loop->index + 1 }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($jp->date_debut)->format('m/Y') }}</td>
-                                    <td>{{ optional($jp->employe)->matricule_no }}</td>
                                     <td>{{ strtoupper(optional($jp->employe)->firstname.' '.optional($jp->employe)->lastname) }}</td>
-                                    <td>{{ $fmt($jp->somme_salaire_base) }}</td>
-                                    <td>{{ $fmt($jp->allocation_familiale) }}</td>
-                                    <td>{{ $fmt($jp->indemnite_logement) }}</td>
-                                    <td>{{ $fmt($jp->indemnite_deplacement) }}</td>
-                                    <td>{{ $fmt($jp->prime_fonction) }}</td>
-                                    <td><strong>{{ $fmt($brut) }}</strong></td>
-                                    <td>{{ $fmt($jp->somme_cotisation_inss) }}</td>
-                                    <td>{{ $fmt($jp->inss_employeur) }}</td>
-                                    <td>{{ $fmt($jp->assurance_maladie_employe) }}</td>
-                                    <td>{{ $fmt($jp->assurance_maladie_employeur) }}</td>
-                                    <td>{{ $fmt($jp->somme_impot) }}</td>
-                                    <td>{{ $fmt($jp->retenue_pret) }}</td>
-                                    <td>{{ $fmt($jp->soins_medicaux) }}</td>
-                                    <td>{{ $fmt($jp->autre_retenue) }}</td>
-                                    <td><strong>{{ $fmt($totalRetenue) }}</strong></td>
-                                    <td><strong>{{ $fmt($net) }}</strong></td>
+                                    <td>{{ $fmt($jp->nbre_jours_ouvrables) }}</td>
+                                    <td>{{ $fmt($paie['salaire_base']) }}</td>
+                                    <td>{{ $fmt($paie['allocation_familiale']) }}</td>
+                                    <td>{{ $fmt($paie['indemnite_logement']) }}</td>
+                                    <td>{{ $fmt($paie['indemnite_deplacement']) }}</td>
+                                    <td>{{ $fmt($paie['heures_suppl']) }}</td>
+                                    <td>{{ $fmt($paie['autres_indemnites']) }}</td>
+                                    <td>{{ $fmt($paie['prime_fonction']) }}</td>
+                                    <td><strong>{{ $fmt($paie['rem_brut']) }}</strong></td>
+                                    <td>{{ $fmt($paie['inss_pens']) }}</td>
+                                    <td>{{ $fmt($paie['inss_risque']) }}</td>
+                                    <td>{{ $fmt($paie['sante_qpp']) }}</td>
+                                    <td>{{ $fmt($paie['charge_employeur']) }}</td>
+                                    <td>{{ $fmt($paie['inss_trav']) }}</td>
+                                    <td>{{ $fmt($paie['sante_trav']) }}</td>
+                                    <td>{{ $fmt($paie['ire']) }}</td>
+                                    <td>{{ $fmt($paie['avance']) }}</td>
+                                    <td>{{ $fmt($paie['soins_medicaux']) }}</td>
+                                    <td>{{ $fmt($paie['autres_retenues']) }}</td>
+                                    <td><strong>{{ $fmt($paie['tot_retenu']) }}</strong></td>
+                                    <td><strong>{{ $fmt($paie['net']) }}</strong></td>
                                     <td>
                                         @if($jp->id)
                                             <a class="btn btn-info btn-sm text-white"

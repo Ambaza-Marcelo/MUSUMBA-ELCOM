@@ -175,21 +175,8 @@
                                         <a href="{{ route('admin.material-purchase-payment-request-before.create',$order->order_no)}}" class="btn btn-success">Demande de Sortie de fonds</a>
                                         @endif
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('material_supplier_order.delete'))
-                                            @if($order->status == -1 || $order->status == 1)
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.material-supplier-orders.destroy', $order->order_no) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $order->order_no }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $order->order_no }}" action="{{ route('admin.material-supplier-orders.destroy', $order->order_no) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                            @endif
-                                        @endif
                                         @if (Auth::guard('admin')->user()->can('material_supplier_order.create'))
-                                        <a href="{{ route('admin.material-supplier-orders.materialSupplierOrder',$order->order_no) }}"><img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.download_then_print')"></a> 
+                                        <a href="{{ route('admin.material-supplier-orders.materialSupplierOrder',$order->order_no) }}"><img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.download_then_print')"></a>
                                         @endif
                                     </td>
                                 </tr>

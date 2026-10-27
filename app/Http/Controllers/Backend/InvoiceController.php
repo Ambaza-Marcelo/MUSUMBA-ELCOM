@@ -48,9 +48,11 @@ use App\Models\GoodsStoreDetail;
 use App\Models\FinishedGoodReport;
 use App\Mail\DeleteFactureMail;
 use App\Mail\InvoiceResetedMail;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 
 class InvoiceController extends Controller
 {
+    use GuardsAccountingPeriod;
     //
     public $user;
 
@@ -128,41 +130,13 @@ class InvoiceController extends Controller
             abort(403, 'Sorry !! You are Unauthorized to create any invoice !');
         }
 
-        // Get delivery note
-        $delivery_note = DeliveryNote::where('delivery_number', $delivery_number)
-            ->with(['client'])
-            ->firstOrFail();
+        // Facturation uniquement depuis le bon de commande (évite les doublons avec le BL).
+        session()->flash(
+            'error',
+            'La facturation depuis le bon de livraison est désactivée. Créez la facture à partir du bon de commande.'
+        );
 
-        // Check if delivery note is approved (etat=3)
-        if ($delivery_note->etat != '3') {
-            session()->flash('error', 'Le bon de livraison doit être approuvé (etat=3) pour créer une facture.');
-            return redirect()->route('admin.delivery-note.index');
-        }
-
-        // Check if invoice already exists for this delivery note
-        $existing = Invoice::where('document_no', $delivery_number)->first();
-        if ($existing) {
-            session()->flash('info', 'Une facture existe déjà pour ce bon de livraison.');
-            return redirect()->route('admin.invoice.show', $existing->invoice_number);
-        }
-
-        // Get delivery note details from delivery_note_details table where delivery_number matches
-        $datas = DeliveryNoteDetail::where('delivery_number', $delivery_number)
-            ->with(['item'])
-            ->get();
-
-        if ($datas->isEmpty()) {
-            session()->flash('error', 'Aucun détail trouvé pour ce bon de livraison.');
-            return redirect()->route('admin.delivery-note.index');
-        }
-
-        $clients = EGRClient::orderBy('customer_name')->get();
-        $setting = Setting::first();
-        if (!$setting) {
-            session()->flash('error', 'Paramètres société introuvables. Veuillez configurer la société avant de créer une facture.');
-            return redirect()->route('admin.invoice.index');
-        }
-        return view('backend.pages.invoice.create', compact('clients', 'datas', 'delivery_note', 'delivery_number', 'setting'));
+        return redirect()->route('admin.sales-order.index');
     }
 
     public function createFromSalesOrder($sales_order_number)
@@ -227,6 +201,16 @@ class InvoiceController extends Controller
             $invoiceType = $this->normalizeSingleChoice($request->input('invoice_type'), ['FN', 'RC', 'RHF'], 'FN');
             $paymentType = $this->normalizeSingleChoice($request->input('payment_type'), ['1', '2', '3', '4'], '1');
             $invoiceCurrency = $this->normalizeSingleChoice($request->input('invoice_currency'), ['BIF', 'USD', 'EUR'], 'BIF');
+
+            // Bloquer la facturation rattachée à un bon de livraison (uniquement BC).
+            if (!empty($document_no) && DeliveryNote::where('delivery_number', $document_no)->exists()) {
+                DB::rollBack();
+                session()->flash(
+                    'error',
+                    'La facturation depuis le bon de livraison est désactivée. Créez la facture à partir du bon de commande.'
+                );
+                return redirect()->route('admin.sales-order.index');
+            }
             
             if (empty($item_ids) || empty($quantities)) {
                 return redirect()->back()->withErrors(['error' => 'Veuillez ajouter au moins un article.'])->withInput();
@@ -604,34 +588,8 @@ class InvoiceController extends Controller
 
     public function destroy($invoice_number)
     {
-        if (is_null($this->user) || !$this->user->can('invoice.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any invoice !');
-        }
-
-        try {
-            $invoice = Invoice::where('invoice_number', $invoice_number)->firstOrFail();
-            
-            // Prevent deletion if invoice is validated (cash or credit)
-            if (in_array($invoice->etat, ['1', '2'])) {
-                session()->flash('error', 'Cette facture ne peut pas être supprimée car elle est validée (état ' . $invoice->etat . ').');
-                return redirect()->route('admin.invoice.index');
-            }
-
-            DB::beginTransaction();
-            
-            // Delete details first
-            InvoiceDetail::where('invoice_number', $invoice_number)->delete();
-            
-            // Delete main invoice
-            $invoice->delete();
-
-            DB::commit();
-            session()->flash('success', 'La facture est supprimée avec succès!!');
-        } catch (\Exception $e) {
-            DB::rollback();
-            session()->flash('error', __('messages.error_delete') . $e->getMessage());
-        }
-
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
         return redirect()->route('admin.invoice.index');
     }
 
@@ -849,6 +807,10 @@ class InvoiceController extends Controller
             return redirect()->back()->withErrors($error)->withInput();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($invoice->date ?? $invoice->invoice_date ?? now())) {
+            return redirect()->back();
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1031,6 +993,10 @@ class InvoiceController extends Controller
             return redirect()->back()->withErrors($error)->withInput();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($invoice->date ?? $invoice->invoice_date ?? now())) {
+            return redirect()->back();
+        }
+
         try {
             DB::beginTransaction();
 
@@ -1191,6 +1157,441 @@ class InvoiceController extends Controller
             DB::rollback();
             session()->flash('error', __('messages.error_validation') . $e->getMessage());
             return redirect()->back()->withInput();
+        }
+    }
+
+    public function listCreditReceivables(Request $request)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to view credit receivables !');
+        }
+
+        $query = Invoice::with(['client', 'details'])
+            ->where('etat', '2')
+            ->orderBy('id', 'desc');
+
+        if ($request->filled('date_debut') && $request->filled('date_fin')) {
+            $query->whereBetween('invoice_date', [
+                Carbon::parse($request->date_debut)->startOfDay(),
+                Carbon::parse($request->date_fin)->endOfDay(),
+            ]);
+        }
+
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->client_id);
+        }
+
+        $query->take(100);
+        $factures = $query->get();
+        $clients = EGRClient::orderBy('customer_name')->get();
+
+        return view('backend.pages.invoice_all.credit', compact('factures', 'clients'));
+    }
+
+    public function listRecoveredCredits(Request $request)
+    {
+        return redirect()->route('admin.credits.receivables.index');
+    }
+
+    public function exportRecoveryReportExcel(Request $request)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to export recovery reports !');
+        }
+
+        $invoices = $this->buildCreditRecoveryQuery($request)->get();
+        if ($invoices->isEmpty()) {
+            return back()->with('error', 'Aucune facture de recouvrement trouvée pour la période sélectionnée.');
+        }
+
+        $rows = [];
+        $i = 1;
+        foreach ($invoices as $invoice) {
+            $amounts = $this->computeCreditInvoiceAmounts($invoice);
+            $rows[] = [
+                $i++,
+                $invoice->invoice_number,
+                $invoice->invoice_date ? Carbon::parse($invoice->invoice_date)->format('d/m/Y') : '',
+                $invoice->client ? $invoice->client->customer_name : ($invoice->customer_name ?? ''),
+                $amounts['total'],
+                $amounts['paid'],
+                $amounts['remaining'],
+                $amounts['status'],
+                $invoice->nom_recouvrement ?? '',
+            ];
+        }
+
+        $headings = ['#', 'Numero Facture', 'Date', 'Client', 'Montant Credit', 'Montant Recouvre', 'Reste a payer', 'Statut', 'Charge de recouvrement'];
+
+        return Excel::download(
+            new \App\Exports\GenericIndexExport($rows, $headings),
+            'rapport_recouvrement_' . now()->format('Ymd_His') . '.xlsx'
+        );
+    }
+
+    public function exportRecoveryReportPdf(Request $request)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to export recovery reports !');
+        }
+
+        $invoices = $this->buildCreditRecoveryQuery($request)->get();
+        if ($invoices->isEmpty()) {
+            return back()->with('error', 'Aucune facture de recouvrement trouvée pour la période sélectionnée.');
+        }
+
+        $rows = [];
+        $totalCredit = 0;
+        $totalPaid = 0;
+        $totalRemaining = 0;
+
+        foreach ($invoices as $invoice) {
+            $amounts = $this->computeCreditInvoiceAmounts($invoice);
+            $rows[] = [
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_date' => $invoice->invoice_date ? Carbon::parse($invoice->invoice_date)->format('d/m/Y') : '',
+                'client_name' => $invoice->client ? $invoice->client->customer_name : ($invoice->customer_name ?? ''),
+                'total' => $amounts['total'],
+                'paid' => $amounts['paid'],
+                'remaining' => $amounts['remaining'],
+                'status' => $amounts['status'],
+                'collector' => $invoice->nom_recouvrement ?? '',
+            ];
+            $totalCredit += $amounts['total'];
+            $totalPaid += $amounts['paid'];
+            $totalRemaining += $amounts['remaining'];
+        }
+
+        $setting = Setting::first();
+        $pdf = PDF::loadView('backend.pages.invoice_all.documents.recovery-report', [
+            'rows' => $rows,
+            'setting' => $setting,
+            'periodStart' => $request->date_debut,
+            'periodEnd' => $request->date_fin,
+            'totalCredit' => $totalCredit,
+            'totalPaid' => $totalPaid,
+            'totalRemaining' => $totalRemaining,
+        ]);
+
+        return $pdf->download('rapport_recouvrement_' . now()->format('Ymd_His') . '.pdf');
+    }
+
+    public function exportClientGlobalInvoiceExcel(Request $request)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to export client credit reports !');
+        }
+
+        $request->validate([
+            'client_id' => 'required',
+            'date_debut' => 'required|date',
+            'date_fin' => 'required|date',
+        ]);
+
+        $client = EGRClient::findOrFail($request->client_id);
+        $invoices = $this->buildCreditRecoveryQuery($request)->where('client_id', $request->client_id)->get();
+
+        if ($invoices->isEmpty()) {
+            return back()->with('error', 'Aucune facture de crédit trouvée pour ce client sur la période sélectionnée.');
+        }
+
+        $rows = [];
+        $i = 1;
+        foreach ($invoices as $invoice) {
+            $amounts = $this->computeCreditInvoiceAmounts($invoice);
+            $rows[] = [
+                $i++,
+                $invoice->invoice_number,
+                $invoice->invoice_date ? Carbon::parse($invoice->invoice_date)->format('d/m/Y') : '',
+                $amounts['total'],
+                $amounts['paid'],
+                $amounts['remaining'],
+                $amounts['status'],
+                $invoice->invoice_signature ?? '',
+            ];
+        }
+
+        $headings = ['#', 'Numero Facture', 'Date', 'Montant Credit', 'Montant Recouvre', 'Reste a payer', 'Statut', 'Signature'];
+        $filename = 'facture_globale_' . preg_replace('/[^A-Za-z0-9_]/', '_', $client->customer_name ?? 'client') . '_' . now()->format('Ymd_His') . '.xlsx';
+
+        return Excel::download(new \App\Exports\GenericIndexExport($rows, $headings), $filename);
+    }
+
+    public function exportClientGlobalInvoicePdf(Request $request)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.view')) {
+            abort(403, 'Sorry !! You are Unauthorized to export client credit reports !');
+        }
+
+        $request->validate([
+            'client_id' => 'required',
+            'date_debut' => 'required|date',
+            'date_fin' => 'required|date',
+        ]);
+
+        $client = EGRClient::findOrFail($request->client_id);
+        $invoices = $this->buildCreditRecoveryQuery($request)->where('client_id', $request->client_id)->get();
+
+        if ($invoices->isEmpty()) {
+            return back()->with('error', 'Aucune facture de crédit trouvée pour ce client sur la période sélectionnée.');
+        }
+
+        $rows = [];
+        $totalCredit = 0;
+        $totalPaid = 0;
+        $totalRemaining = 0;
+
+        foreach ($invoices as $invoice) {
+            $amounts = $this->computeCreditInvoiceAmounts($invoice);
+            $rows[] = [
+                'invoice_number' => $invoice->invoice_number,
+                'invoice_date' => $invoice->invoice_date ? Carbon::parse($invoice->invoice_date)->format('d/m/Y') : '',
+                'total' => $amounts['total'],
+                'paid' => $amounts['paid'],
+                'remaining' => $amounts['remaining'],
+                'status' => $amounts['status'],
+                'signature' => $invoice->invoice_signature ?? '',
+            ];
+            $totalCredit += $amounts['total'];
+            $totalPaid += $amounts['paid'];
+            $totalRemaining += $amounts['remaining'];
+        }
+
+        $setting = Setting::first();
+        $pdf = PDF::loadView('backend.pages.invoice_all.documents.client-global-credit-report', [
+            'rows' => $rows,
+            'client' => $client,
+            'setting' => $setting,
+            'periodStart' => $request->date_debut,
+            'periodEnd' => $request->date_fin,
+            'totalCredit' => $totalCredit,
+            'totalPaid' => $totalPaid,
+            'totalRemaining' => $totalRemaining,
+        ]);
+
+        $fileName = 'facture_globale_' . preg_replace('/[^A-Za-z0-9_]/', '_', $client->customer_name ?? 'client') . '_' . now()->format('Ymd_His') . '.pdf';
+
+        return $pdf->download($fileName);
+    }
+
+    public function showCreditPaymentForm($invoice_number)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.create')) {
+            abort(403, 'Sorry !! You are Unauthorized to pay any credit invoice !');
+        }
+
+        $facture = Invoice::with(['client'])->where('invoice_number', $invoice_number)->firstOrFail();
+        $datas = InvoiceDetail::where('invoice_number', $invoice_number)->get();
+        $clients = EGRClient::orderBy('customer_name')->get();
+
+        $totalAmount = (float) ($facture->montant_total_credit ?? 0);
+        if ($totalAmount <= 0) {
+            $totalAmount = (float) InvoiceDetail::where('invoice_number', $invoice_number)->sum('item_total_amount');
+        }
+
+        $montantRecouvre = (float) ($facture->montant_recouvre ?? 0);
+        $resteCredit = $facture->reste_credit !== null && $facture->reste_credit !== ''
+            ? (float) $facture->reste_credit
+            : max(0, $totalAmount - $montantRecouvre);
+        $existingNotes = trim((string) ($facture->note_recouvrement ?? ''));
+        $nextTrancheNumber = substr_count($existingNotes, '[Tranche ') + 1;
+
+        return view('backend.pages.invoice_all.payer-credit', [
+            'facture' => $facture,
+            'datas' => $datas,
+            'clients' => $clients,
+            'total_amount' => $totalAmount,
+            'reste_credit' => $resteCredit,
+            'next_tranche_number' => $nextTrancheNumber,
+        ]);
+    }
+
+    public function payCredit(Request $request, $invoice_number)
+    {
+        if (is_null($this->user) || !$this->user->can('recouvrement.create')) {
+            abort(403, 'Sorry !! You are Unauthorized to validate any invoice !');
+        }
+
+        $request->validate([
+            'client_id' => 'required',
+            'statut_paied' => 'required',
+            'account_id' => 'required',
+            'etat_recouvrement' => 'required',
+            'date_recouvrement' => 'required',
+            'nom_recouvrement' => 'required',
+            'note_recouvrement' => 'required',
+            'montant_total_credit' => 'required|numeric|min:0',
+            'montant_recouvre' => 'required|numeric|min:0',
+        ]);
+
+        if ($this->abortIfAccountingPeriodLocked($request->date_recouvrement)) {
+            return redirect()->back();
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $facture = Invoice::with('client')
+                ->where('invoice_number', $invoice_number)
+                ->where('etat', '2')
+                ->first();
+
+            if (!$facture) {
+                DB::rollBack();
+                session()->flash('error', 'Facture de crédit introuvable ou non validée.');
+                return back();
+            }
+
+            $client = EGRClient::find($request->client_id);
+            if (!$client) {
+                DB::rollBack();
+                session()->flash('error', 'Le client sélectionné est introuvable.');
+                return back();
+            }
+
+            if (!$client->account_id) {
+                DB::rollBack();
+                session()->flash('error', 'Le client n\'a pas de compte comptable associé.');
+                return back();
+            }
+
+            $account = AccountAccount::find($request->account_id);
+            if (!$account) {
+                DB::rollBack();
+                session()->flash('error', 'Le compte sélectionné est introuvable.');
+                return back();
+            }
+
+            $montantTotalCredit = (float) $request->montant_total_credit;
+            if ((float) ($facture->montant_total_credit ?? 0) > 0) {
+                $montantTotalCredit = (float) $facture->montant_total_credit;
+            }
+            if ($montantTotalCredit <= 0) {
+                $montantTotalCredit = (float) InvoiceDetail::where('invoice_number', $invoice_number)->sum('item_total_amount');
+            }
+
+            $montantPaiementCourant = (float) $request->montant_recouvre;
+            $montantRecouvreExistant = (float) ($facture->montant_recouvre ?? 0);
+            $resteCreditActuel = $facture->reste_credit !== null && $facture->reste_credit !== ''
+                ? (float) $facture->reste_credit
+                : max(0, $montantTotalCredit - $montantRecouvreExistant);
+
+            if ($montantPaiementCourant <= 0) {
+                DB::rollBack();
+                session()->flash('error', 'Le montant de ce paiement doit être supérieur à zéro.');
+                return back();
+            }
+
+            if ($montantPaiementCourant > $resteCreditActuel) {
+                DB::rollBack();
+                session()->flash('error', 'Le montant de ce paiement ne peut pas dépasser le reste à payer.');
+                return back();
+            }
+
+            $etatRecouvrement = (int) $request->etat_recouvrement;
+
+            if ($etatRecouvrement === 2 && abs($montantPaiementCourant - $resteCreditActuel) > 0.01) {
+                DB::rollBack();
+                session()->flash('error', 'Pour un paiement total, le montant doit être égal au reste à payer.');
+                return back();
+            }
+
+            if ($etatRecouvrement === 1 && $montantPaiementCourant >= $resteCreditActuel) {
+                DB::rollBack();
+                session()->flash('error', 'Pour un paiement partiel, le montant doit être inférieur au reste à payer.');
+                return back();
+            }
+
+            $montantTotalRecouvre = $montantRecouvreExistant + $montantPaiementCourant;
+            $resteCredit = max(0, $montantTotalCredit - $montantTotalRecouvre);
+            $etatRecouvrementFinal = $resteCredit <= 0 ? '2' : '1';
+            $modePaiementLabel = (int) $request->statut_paied === 2 ? 'Banque' : 'CASH';
+            $accountLabel = trim(($account->account_number ?? '') . ' - ' . ($account->account_name ?? ''));
+
+            $noteRecouvrement = trim((string) $request->note_recouvrement);
+            $existingNotes = trim((string) ($facture->note_recouvrement ?? ''));
+            $numeroTranche = substr_count($existingNotes, '[Tranche ') + 1;
+            $paymentNote = '[Tranche ' . $numeroTranche . ' - ' . $request->date_recouvrement . '] '
+                . $noteRecouvrement
+                . ' | Mode: ' . $modePaiementLabel
+                . ' | Compte: ' . $accountLabel
+                . ' | Réf: ' . ($request->cheque_no ?: '-')
+                . ' | Montant: ' . number_format($montantPaiementCourant, 0, ',', ' ') . ' BIF'
+                . ' | Reste: ' . number_format($resteCredit, 0, ',', ' ') . ' BIF';
+
+            $noteRecouvrementFinale = $existingNotes !== ''
+                ? $existingNotes . "\n\n" . $paymentNote
+                : $paymentNote;
+
+            Invoice::where('invoice_number', $invoice_number)->update([
+                'client_id' => $request->client_id,
+                'statut_paied' => $request->statut_paied,
+                'etat_recouvrement' => $etatRecouvrementFinal,
+                'date_recouvrement' => $request->date_recouvrement,
+                'nom_recouvrement' => $request->nom_recouvrement,
+                'note_recouvrement' => $noteRecouvrementFinale,
+                'bank_name' => $account->account_name,
+                'cheque_no' => $request->cheque_no,
+                'montant_total_credit' => $montantTotalCredit,
+                'montant_recouvre' => $montantTotalRecouvre,
+                'reste_credit' => $resteCredit,
+                'confirmed_by' => $this->user->name,
+            ]);
+
+            InvoiceDetail::where('invoice_number', $invoice_number)->update([
+                'statut_paied' => $request->statut_paied,
+                'etat_recouvrement' => $etatRecouvrementFinal,
+                'date_recouvrement' => $request->date_recouvrement,
+                'nom_recouvrement' => $request->nom_recouvrement,
+                'note_recouvrement' => $noteRecouvrementFinale,
+                'bank_name' => $account->account_name,
+                'cheque_no' => $request->cheque_no,
+                'montant_total_credit' => $montantTotalCredit,
+                'montant_recouvre' => $montantTotalRecouvre,
+                'reste_credit' => $resteCredit,
+                'confirmed_by' => $this->user->name,
+            ]);
+
+            $accountLedgerState = $this->updateLedgerTotals((int) $request->account_id, 'debit', $montantPaiementCourant);
+            $journalDescription = 'RECOUVREMENT CREDIT - ' . $noteRecouvrement;
+
+            AccountJournalEntryDetail::insert([[
+                'date' => $facture->invoice_date,
+                'document_no' => $facture->invoice_number,
+                'description' => $journalDescription,
+                'account_id' => (int) $request->account_id,
+                'libelle' => $journalDescription,
+                'debit' => $montantPaiementCourant,
+                'balance' => $accountLedgerState['balance'],
+                'created_at' => Carbon::now(),
+            ]]);
+
+            $clientLedgerState = $this->updateLedgerTotals((int) $client->account_id, 'credit', $montantPaiementCourant);
+            AccountJournalEntryDetail::insert([[
+                'date' => $facture->invoice_date,
+                'document_no' => $facture->invoice_number,
+                'description' => $journalDescription,
+                'account_id' => (int) $client->account_id,
+                'libelle' => $journalDescription,
+                'credit' => $montantPaiementCourant,
+                'balance' => $clientLedgerState['balance'],
+                'created_at' => Carbon::now(),
+            ]]);
+
+            DB::commit();
+            session()->flash('success', 'Paiement enregistré avec succès (tranche ' . $numeroTranche . '). Reste à payer: ' . number_format($resteCredit, 0, ',', ' ') . ' BIF.');
+
+            return redirect()->route('admin.credits.receivables.index');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            \Log::error('Erreur lors du recouvrement de crédit: ' . $e->getMessage(), [
+                'invoice_number' => $invoice_number,
+                'user' => $this->user->name ?? 'Unknown',
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            session()->flash('error', 'Une erreur est survenue lors du recouvrement: ' . $e->getMessage());
+            return back()->withInput();
         }
     }
 
@@ -1490,6 +1891,55 @@ class InvoiceController extends Controller
             'debit' => $currentDebit,
             'credit' => $currentCredit,
             'balance' => $ledger->balance,
+        ];
+    }
+
+    protected function buildCreditRecoveryQuery(Request $request)
+    {
+        $query = Invoice::with(['client', 'details'])
+            ->where('etat', '2')
+            ->orderBy('invoice_date', 'asc')
+            ->orderBy('id', 'asc');
+
+        if ($request->filled('date_debut') && $request->filled('date_fin')) {
+            $query->whereBetween('invoice_date', [
+                Carbon::parse($request->date_debut)->startOfDay(),
+                Carbon::parse($request->date_fin)->endOfDay(),
+            ]);
+        }
+
+        if ($request->filled('client_id')) {
+            $query->where('client_id', $request->client_id);
+        }
+
+        return $query;
+    }
+
+    protected function computeCreditInvoiceAmounts(Invoice $invoice): array
+    {
+        $total = (float) ($invoice->montant_total_credit ?? 0);
+        if ($total <= 0) {
+            $total = (float) $invoice->details->sum('item_total_amount');
+        }
+
+        $paid = (float) ($invoice->montant_recouvre ?? 0);
+        $remaining = $invoice->reste_credit !== null && $invoice->reste_credit !== ''
+            ? (float) $invoice->reste_credit
+            : max(0, $total - $paid);
+
+        if ((string) $invoice->etat_recouvrement === '2' || $remaining <= 0) {
+            $status = 'Paiement total';
+        } elseif ((string) $invoice->etat_recouvrement === '1' || $paid > 0) {
+            $status = 'Paiement partiel';
+        } else {
+            $status = 'Encours';
+        }
+
+        return [
+            'total' => $total,
+            'paid' => $paid,
+            'remaining' => $remaining,
+            'status' => $status,
         ];
     }
 

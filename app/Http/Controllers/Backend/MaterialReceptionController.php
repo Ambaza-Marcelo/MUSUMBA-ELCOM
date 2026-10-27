@@ -1007,14 +1007,34 @@ class MaterialReceptionController extends Controller
                     $purchasePrice = (float) ($data->purchase_price ?? 0);
 
                     if ($item->store_type == Item::STORE_TYPE_FINISHED_GOODS) {
-                        $store = FinishedGoodsStore::first();
+                        $code_store = trim((string) ($item->code_store
+                            ?? $reception->code_store
+                            ?? $data->code_store
+                            ?? ''));
+
+                        $isSm = $code_store !== '' && \App\Models\FinishedGoodsSmStore::where('code', $code_store)->exists();
+                        if ($isSm) {
+                            $store = \App\Models\FinishedGoodsSmStore::where('code', $code_store)->first();
+                            $storeDetail = \App\Models\FinishedGoodsSmStoreDetail::where('code_store', $code_store)
+                                ->where('item_id', $data->item_id)
+                                ->first();
+                        } else {
+                            $store = $code_store !== ''
+                                ? FinishedGoodsStore::where('code', $code_store)->first()
+                                : FinishedGoodsStore::first();
+                            if ($store) {
+                                $code_store = $store->code;
+                            }
+                            $storeDetail = $store
+                                ? FinishedGoodsStoreDetail::where('code_store', $code_store)->where('item_id', $data->item_id)->first()
+                                : null;
+                        }
+
                         if (!$store) {
                             DB::rollback();
                             session()->flash('error', 'Aucun magasin produits finis configuré.');
                             return back();
                         }
-                        $code_store = $store->code;
-                        $storeDetail = FinishedGoodsStoreDetail::where('code_store', $code_store)->where('item_id', $data->item_id)->first();
                         if (!$storeDetail) {
                             DB::rollback();
                             session()->flash('error', 'Article non enregistré dans le stock produits finis: ' . ($item->name ?? ''));
@@ -1422,7 +1442,7 @@ class MaterialReceptionController extends Controller
 
             if (empty($vat_deduc_account_id)) {
                 DB::rollback();
-                session()->flash('error', 'Account ID for VAT deduction not configured. Please configure vat_deduc_account_id in Account Settings.');
+                session()->flash('error', 'Le compte de TVA déductible n\'est pas configuré dans les paramètres comptables.');
                 return redirect()->back();
             }
 
@@ -1447,7 +1467,7 @@ class MaterialReceptionController extends Controller
             //start credit acc_employee operations
             if (empty($dataCashOutFlow->employe->cash_out_account_id)) {
                 DB::rollback();
-                session()->flash('error', 'Cash Out Account ID not found for the employee ('.$dataCashOutFlow->employe->firstname.') Please configure cash_out_account_id for the employee.');
+                session()->flash('error', 'Le compte de sortie de fonds de l\'employé ('.$dataCashOutFlow->employe->firstname.') n\'est pas renseigné sur sa fiche.');
                 return redirect()->back();
             }
 
@@ -1544,7 +1564,7 @@ class MaterialReceptionController extends Controller
 
             if (empty($vat_deduc_account_id)) {
                 DB::rollback();
-                session()->flash('error', 'Account ID for VAT deduction not configured. Please configure vat_deduc_account_id in Account Settings.');
+                session()->flash('error', 'Le compte de TVA déductible n\'est pas configuré dans les paramètres comptables.');
                 return redirect()->back();
             }
 
@@ -2036,30 +2056,8 @@ class MaterialReceptionController extends Controller
      */
     public function destroy($reception_no)
     {
-        if (is_null($this->user) || !$this->user->can('material_reception.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any reception !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $reception = MaterialReception::where('reception_no',$reception_no)->first();
-        if (!is_null($reception)) {
-            $reception->delete();
-            MaterialReceptionDetail::where('reception_no',$reception_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'Reception has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.material-receptions.index');
     }
 }

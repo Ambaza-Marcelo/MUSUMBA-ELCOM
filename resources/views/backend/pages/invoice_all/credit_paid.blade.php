@@ -42,9 +42,9 @@
             <div class="card">
                 <div class="card-body">
                     <h4 class="header-title float-left">@lang('messages.Liste des factures a credits recouvres')</h4>
-                    <form action="{{ route('admin.exporter-en-excel-recouvrement')}}" method="GET">
+                    <form action="{{ route('admin.credits.recoveries.index')}}" method="GET">
                         <p class="float-right mb-2">
-                            <button type="submit" value="pdf" class="btn btn-info">@lang('messages.Exporter En Excel')</button>
+                            <button type="submit" class="btn btn-info">Afficher les recouvrements</button>
                         </p>
                         <p class="float-right mb-2">
                             <div class="row">
@@ -57,9 +57,9 @@
                             </div>
                         </p>
                     </form><br>
-                    <form action="{{ route('admin.rapport-facture-credit-paye')}}" method="GET">
+                    <form action="{{ route('admin.credits.recoveries.index')}}" method="GET">
                         <p class="float-right mb-2">
-                            <button type="submit" value="pdf" class="btn btn-info">@lang('messages.Exporter En PDF')</button>
+                            <button type="submit" class="btn btn-info">Filtrer les recouvrements</button>
                         </p>
                         <p class="float-right mb-2">
                             <div class="row">
@@ -86,14 +86,14 @@
                                     <th width="10%">@lang('messages.No Commande')</th>
                                     <th width="10%">@lang('messages.Signature')</th>
                                     <th width="10%">@lang('messages.Auteur')</th>
-                                    <th width="10%">@lang('messages.Action')</th>
+                                    <th width="10%">Statut</th>
                                 </tr>
                             </thead>
                             <tbody>
                             @foreach($factures as $facture)
                                <tr>
                                     <td>{{ $loop->index+1}}</td>
-                                    <td><a href="@if($facture->drink_order_no){{ route('admin.facture.show',$facture->invoice_number) }} @elseif($facture->food_order_no) {{ route('admin.invoice-kitchens.show',$facture->invoice_number) }} @elseif($facture->bartender_order_no) {{ route('admin.bartender-invoices.show',$facture->invoice_number) }} @elseif($facture->barrist_order_no) {{ route('admin.barrist-invoices.show',$facture->invoice_number) }} @else {{ route('admin.booking-invoices.show',$facture->invoice_number) }} @endif">{{ $facture->invoice_number }}</a>&nbsp;
+                                    <td><a href="{{ route('admin.invoice.show', $facture->invoice_number) }}">{{ $facture->invoice_number }}</a>&nbsp;
                                     @if($facture->statut_paied === '1')
                                         <span class="badge badge-info" title="{{ $facture->customer_name }}">CASH</span>
                                     @elseif($facture->statut_paied === '2')
@@ -111,21 +111,7 @@
                                     <td>@if($facture->drink_order_no){{ $facture->drink_order_no }}<span class="badge badge-info">@lang('messages.ARTICLES')</span> @elseif($facture->food_order_no){{ $facture->food_order_no }}<span class="badge badge-info">@lang('messages.matières premières')</span> @elseif($facture->barrist_order_no){{ $facture->barrist_order_no }}<span class="badge badge-info">@lang('messages.barrist')</span> @elseif($facture->bartender_order_no){{ $facture->bartender_order_no }}<span class="badge badge-info">@lang('messages.bartender')</span> @else {{ $facture->booking_no }}<span class="badge badge-info">@lang('messages.reservation')</span> @endif</td>
                                     <td>{{ $facture->invoice_signature }}</td>
                                     <td>{{ $facture->confirmed_by }}</td>
-                                    <td>
-                                        @if (Auth::guard('admin')->user()->can('invoice_booking.approuve'))
-                                        @if($facture->paid_either == '')
-                                         <a class="btn btn-primary text-white" href="{{ route('admin.valider-facture-paye', $facture->invoice_number) }}"
-                                            onclick="event.preventDefault(); document.getElementById('validate-form-{{ $facture->invoice_number }}').submit();">
-                                                Approuver
-                                            </a>
-
-                                            <form id="validate-form-{{ $facture->invoice_number }}" action="{{ route('admin.valider-facture-paye', $facture->invoice_number) }}" method="POST" style="display: none;">
-                                                @method('PUT')
-                                                @csrf
-                                            </form>
-                                        @endif
-                                        @endif                                      
-                                    </td>
+                                    <td><span class="badge badge-success">Payé</span></td>
                                 </tr>
                             @endforeach
                             </tbody>

@@ -3,9 +3,10 @@
 namespace App\Exports;
 
 use App\Models\MaterialBigReport;
+use App\Support\ChronologicalProgression;
+use App\Support\ProgressiveStockReportBuilder;
 use App\Support\StockReportContext;
 use App\Support\StockReportFilter;
-use App\Support\StockReportInventoryNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -26,15 +27,20 @@ class MaterialMdStoreReportExport implements FromCollection, WithMapping, WithHe
             return collect();
         }
 
+        $config = $this->filterConfig();
+
         $query = MaterialBigReport::with('material')->select(
             DB::raw('id,created_at,material_id,code_store,quantity_stock_initial,value_stock_initial,quantity_stockin,value_stockin,quantity_reception,value_reception,quantity_transfer,value_transfer,quantity_stockout,value_stockout,quantity_stock_final,value_stock_final,type_transaction')
         );
 
-        StockReportFilter::apply($query, $request, $this->filterConfig());
+        StockReportFilter::apply($query, $request, $config);
+        ChronologicalProgression::applyInsertionQueryOrder($query, 'desc');
 
-        return StockReportInventoryNormalizer::normalizeCollection(
-            $query->orderBy('id', 'desc')->get()
-        );
+        return ProgressiveStockReportBuilder::apply($query->get(), [
+            'entity_column' => $config['item_column'] ?? null,
+            'store_column' => $config['store_column'] ?? 'code_store',
+            'display_direction' => 'desc',
+        ]);
     }
 
     public function map($data): array

@@ -322,28 +322,10 @@ class FinishedGoodsSmStoreInventoryController extends Controller
         }
     }
 
-    public function destroy($inventory_no)
+        public function destroy($inventory_no)
     {
-        if (is_null($this->user) || !$this->user->can('finished_goods_sm_store_inventory.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any SM inventory !');
-        }
-
-        try {
-            DB::beginTransaction();
-
-            $inventory = FinishedGoodsSmStoreInventory::where('inventory_no', $inventory_no)->first();
-            if (!is_null($inventory)) {
-                $inventory->delete();
-                FinishedGoodsSmStoreInventoryDetail::where('inventory_no', $inventory_no)->delete();
-            }
-
-            DB::commit();
-            session()->flash('success', 'SM Inventory has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            DB::rollback();
-            throw $e;
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.finished-goods-sm-store-inventory.index');
     }
 
     public function generatePdf($inventory_no)

@@ -15,6 +15,7 @@ use App\Models\FinishedGoodsStore;
 use App\Models\FinishedGoodsStoreDetail;
 use App\Exports\FinishedGoodsStoreExport;
 use App\Models\Accounting\AccountAccount;
+use App\Support\StockInventoryResync;
 use Carbon\Carbon;
 use Excel;
 use PDF;
@@ -156,6 +157,34 @@ class FinishedGoodsStoreController extends Controller
     }
 
     /**
+     * Recalcule les quantités du magasin depuis le rapport de stock (mouvements).
+     */
+    public function resyncQuantities($code)
+    {
+        if (is_null($this->user) || !$this->user->can('finished_product_stock.edit')) {
+            abort(403, 'Sorry !! You are Unauthorized to resync stock quantities !');
+        }
+
+        $finished_goods_store = FinishedGoodsStore::where('code', $code)->first();
+        if (!$finished_goods_store) {
+            abort(404, 'Finished Goods Store not found');
+        }
+
+        $result = StockInventoryResync::resyncFinishedGoodsStore($code);
+
+        session()->flash(
+            'success',
+            sprintf(
+                'Quantités resynchronisées depuis le rapport : %d article(s) mis à jour (%d ignoré(s)).',
+                $result['updated'],
+                $result['skipped']
+            )
+        );
+
+        return redirect()->route('admin.finished-goods-store.show', $code);
+    }
+
+    /**
      * Show the form for editing the specified resource.
      *
      * @param  int  $id
@@ -221,21 +250,10 @@ class FinishedGoodsStoreController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+        public function destroy($id)
     {
-        if (is_null($this->user) || !$this->user->can('finished_product_stock.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any finished goods store !');
-        }
-
-        try {
-            $finished_goods_store = FinishedGoodsStore::findOrFail($id);
-            $finished_goods_store->delete();
-            session()->flash('success', 'Finished Goods Store has been deleted !!');
-            return redirect()->route('admin.finished-goods-store.index');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Something went wrong !!');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.finished-goods-store.index');
     }
 
     /**
@@ -244,22 +262,10 @@ class FinishedGoodsStoreController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroyDetail($id)
+        public function destroyDetail($id)
     {
-        if (is_null($this->user) || !$this->user->can('finished_product_stock.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any finished goods store detail !');
-        }
-
-        try {
-            $finished_goods_store_detail = FinishedGoodsStoreDetail::findOrFail($id);
-            $code = $finished_goods_store_detail->code_store;
-            $finished_goods_store_detail->delete();
-            session()->flash('success', 'Finished Goods Store Detail has been deleted !!');
-            return redirect()->route('admin.finished-goods-store.show', $code);
-        } catch (\Exception $e) {
-            session()->flash('error', 'Something went wrong !!');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.finished-goods-store.index');
     }
 
     /**

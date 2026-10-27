@@ -87,18 +87,6 @@
                                             <a class="btn btn-success text-white" href="{{ route('admin.raw-material-small-store-inventory.edit', $inventory->inventory_no) }}">@lang('messages.edit')</a>
                                         @endif
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('raw_material_small_inventory.delete'))
-                                        @if($inventory->status != 2)
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.raw-material-small-store-inventory.destroy', $inventory->inventory_no) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $inventory->inventory_no }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $inventory->inventory_no }}" action="{{ route('admin.raw-material-small-store-inventory.destroy', $inventory->inventory_no) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                            @endif
                                         @endif
                                         @if (Auth::guard('admin')->user()->can('raw_material_small_inventory.validate'))
                                         @if($inventory->status != 2)

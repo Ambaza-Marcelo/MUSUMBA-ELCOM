@@ -96,16 +96,6 @@
                                     <td>{{ number_format((float)($detail->cump ?? 0), 0, ',', ' ') }}</td>
                                     <td>{{ number_format($qty * (float)($detail->cump ?? 0), 0, ',', ' ') }}</td>
                                     <td>
-                                        @if (Auth::guard('admin')->user()->can('raw_material_big_store.delete'))
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.raw-material-big-store.destroy', $detail->id) }}"
-                                            onclick="event.preventDefault(); if(confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) { document.getElementById('delete-form-{{ $detail->id }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-                                            <form id="delete-form-{{ $detail->id }}" action="{{ route('admin.raw-material-big-store.destroy', $detail->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @empty

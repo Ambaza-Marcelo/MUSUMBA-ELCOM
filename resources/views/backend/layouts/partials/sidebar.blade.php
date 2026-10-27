@@ -240,13 +240,13 @@
                     </li>
                     @endif
                     @if ( $usr->can('recouvrement.view'))
-                    <li>
+                    <li class="{{ Route::is('admin.credits.receivables.index') || Route::is('admin.credits.payments.create') || Route::is('admin.credits.payments.update') ? 'active' : '' }}">
                         <a href="javascript:void(0)" aria-expanded="true"><i class="fa fa-credit-card"></i><span>
                             @lang('messages.Credits')
                         </span></a>
-                        <ul class="collapse">
+                        <ul class="collapse {{ Route::is('admin.credits.receivables.index') || Route::is('admin.credits.payments.create') || Route::is('admin.credits.payments.update') ? 'in' : '' }}">
                                 @if ($usr->can('recouvrement.view'))
-                                <li class=""><a href=""><i class="fa fa-money"></i>&nbsp;@lang('messages.Recouvrement')</a></li>
+                                <li class="{{ Route::is('admin.credits.receivables.index') || Route::is('admin.credits.payments.create') || Route::is('admin.credits.payments.update') ? 'active' : '' }}"><a href="{{ route('admin.credits.receivables.index') }}"><i class="fa fa-money"></i>&nbsp;@lang('messages.Recouvrement')</a></li>
                                 @endif
                         </ul>
                     </li>
@@ -308,7 +308,7 @@
                                 <li class=""><a href="{{ route('admin.finished-good-store-report.index') }}"><i class="fa fa-cutlery"></i>&nbsp;@lang('messages.Stock des produits finis')</a></li>
                                 @endif
                                 @if ($usr->can('finished_product_sm_stock_report.view'))
-                                <li class=""><a href="{{ route('admin.finished-good-sm-store-report.index') }}"><i class="fa fa-cutlery"></i>&nbsp;@lang('messages.Petit Stock des produits finis')</a></li>
+                                <li class=""><a href="{{ route('admin.finished-good-sm-store-report.index') }}"><i class="fa fa-cutlery"></i>&nbsp;@lang('messages.finished_goods_sm_store_menu')</a></li>
                                 @endif
                                 @if ($usr->can('material_extra_big_report.view'))
                                 <li class=""><a href="{{ route('admin.material-extra-big-store-report.index') }}"><i class="fa fa-wrench"></i>&nbsp;@lang('messages.Grand stock materiel ')</a></li>
@@ -450,7 +450,7 @@
                     <!-- end human ressources management  -->
 
                     <!-- accounting management -->
-                    @if ($usr->can('account_account.create') || $usr->can('account_account.view') ||  $usr->can('account_parent_account.view') ||  $usr->can('account_parent_account.create') || $usr->can('account_setting.create') || $usr->can('account_setting.view') ||  $usr->can('account_setting.edit') ||  $usr->can('account_setting.delete'))
+                    @if ($usr->can('account_account.create') || $usr->can('account_account.view') ||  $usr->can('account_parent_account.view') ||  $usr->can('account_parent_account.create') || $usr->can('account_setting.create') || $usr->can('account_setting.view') ||  $usr->can('account_setting.edit') ||  $usr->can('account_setting.delete') || $usr->can('account_exercise.view'))
                     <li>
                         <a href="javascript:void(0)" aria-expanded="true"><i class="fa fa-calculator"></i><span>
                             @lang('messages.Accounting')
@@ -458,6 +458,9 @@
                         <ul class="">
                             @if ($usr->can('account_parent_account.view'))
                                 <li class=""><a href="{{ route('admin.accounting-parent-accounts.index') }}"><i class="fa fa-sitemap"></i>&nbsp;@lang('messages.Chart Accounts')</a></li>
+                            @endif
+                            @if ($usr->can('account_exercise.view'))
+                                <li class=""><a href="{{ route('admin.accounting-exercises.index') }}"><i class="fa fa-calendar-check-o"></i>&nbsp;Processus de clôture</a></li>
                             @endif
                             @if ($usr->can('account_journal_entry.view'))
                                 <li class=""><a href="{{ route('admin.accounting-advance-payment.index') }}"><i class="fa fa-list-alt"></i>&nbsp;@lang('messages.Advance Payment')</a></li>

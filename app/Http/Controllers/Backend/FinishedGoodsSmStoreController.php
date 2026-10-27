@@ -166,39 +166,16 @@ class FinishedGoodsSmStoreController extends Controller
         }
     }
 
-    public function destroy($id)
+        public function destroy($id)
     {
-        if (is_null($this->user) || !$this->user->can('finished_product_sm_stock.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any finished goods SM store !');
-        }
-
-        try {
-            $store = FinishedGoodsSmStore::findOrFail($id);
-            $store->delete();
-            session()->flash('success', 'Finished Goods SM Store has been deleted !!');
-            return redirect()->route('admin.finished-goods-sm-store.index');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Something went wrong !!');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.finished-goods-sm-store.index');
     }
 
-    public function destroyDetail($id)
+        public function destroyDetail($id)
     {
-        if (is_null($this->user) || !$this->user->can('finished_product_sm_stock.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any finished goods SM store detail !');
-        }
-
-        try {
-            $detail = FinishedGoodsSmStoreDetail::findOrFail($id);
-            $code = $detail->code_store;
-            $detail->delete();
-            session()->flash('success', 'Finished Goods SM Store Detail has been deleted !!');
-            return redirect()->route('admin.finished-goods-sm-store.show', $code);
-        } catch (\Exception $e) {
-            session()->flash('error', 'Something went wrong !!');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.finished-goods-sm-store.index');
     }
 
     public function storeStatus($code)

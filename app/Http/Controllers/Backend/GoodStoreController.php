@@ -181,42 +181,19 @@ class GoodStoreController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+        public function destroy($id)
     {
-        if (is_null($this->user) || !$this->user->can('goods_stock.delete')) {
-            abort(403, 'Désolé !! Vous n\'êtes pas autorisé à supprimer ce magasin.');
-        }
-
-        try {
-            $store = GoodsStore::findOrFail($id);
-            $store->delete();
-            session()->flash('success', 'Magasin de marchandises supprimé.');
-            return redirect()->route('admin.goods-store.index');
-        } catch (\Exception $e) {
-            session()->flash('error', 'Une erreur s\'est produite.');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.goods-store.index');
     }
 
     /**
      * Remove a store detail (article) from the store.
      */
-    public function destroyDetail($id)
+        public function destroyDetail($id)
     {
-        if (is_null($this->user) || !$this->user->can('goods_stock.delete')) {
-            abort(403, 'Désolé !! Vous n\'êtes pas autorisé à supprimer ce détail.');
-        }
-
-        try {
-            $detail = GoodsStoreDetail::findOrFail($id);
-            $code = $detail->code_store;
-            $detail->delete();
-            session()->flash('success', 'Détail du magasin supprimé.');
-            return redirect()->route('admin.goods-store.show', $code);
-        } catch (\Exception $e) {
-            session()->flash('error', 'Une erreur s\'est produite.');
-            return redirect()->back();
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.goods-store.index');
     }
 
     /**

@@ -95,9 +95,7 @@
                                     <td>{{ $purchase->created_by }}</td>
                                     <td>
                                         @if (Auth::guard('admin')->user()->can('material_purchase.create'))
-                                        @if(in_array($purchase->status, [2, 3, 4, 5, 6, -3], true))
                                         <a href="{{ route('admin.material-purchases.materialPurchase',$purchase->purchase_no) }}"><img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.requisition_pdf_title')"></a>
-                                        @endif
                                         @endif
                                         @if (Auth::guard('admin')->user()->can('material_purchase.validate'))
                                         @if($purchase->status == 1 || $purchase->status == -1)
@@ -176,18 +174,6 @@
                                         @if (Auth::guard('admin')->user()->can('material_purchase.edit'))
                                             <a class="btn btn-success text-white" href="{{ route('admin.material-purchases.edit', $purchase->purchase_no) }}">@lang('messages.edit')</a>
                                         @endif
-                                        @endif
-
-                                        @if (Auth::guard('admin')->user()->can('material_purchase.delete'))
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.material-purchases.destroy', $purchase->purchase_no) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $purchase->purchase_no }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $purchase->purchase_no }}" action="{{ route('admin.material-purchases.destroy', $purchase->purchase_no) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
                                         @endif
                                     </td>
                                 </tr>

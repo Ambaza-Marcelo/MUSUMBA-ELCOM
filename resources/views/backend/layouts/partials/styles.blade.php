@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="{{ asset('backend/assets/css/typography.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/default-css.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/styles.css') }}">
+<link rel="stylesheet" href="{{ asset('backend/assets/css/brand-theme.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/plant-sidebar.css') }}">
 <link rel="stylesheet" href="{{ asset('backend/assets/css/responsive.css') }}">
 <!-- modernizr css -->

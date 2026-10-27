@@ -101,6 +101,18 @@ Route::group(['prefix' => 'admin'], function () {
     Route::put('admin/invoice/{invoice_number}/validate-as-credit', 'Backend\InvoiceController@validateAsCredit')->name('admin.invoice.validate-as-credit');
     Route::get('admin/invoice/{invoice_number}/print', 'Backend\InvoiceController@print')->name('admin.invoice.print');
     Route::get('admin/invoice/{invoice_number}/print-usd', 'Backend\InvoiceController@printUsd')->name('admin.invoice.print-usd');
+    Route::get('admin/credits/receivables', 'Backend\InvoiceController@listCreditReceivables')->name('admin.credits.receivables.index');
+    Route::get('admin/credits/recoveries', 'Backend\InvoiceController@listRecoveredCredits')->name('admin.credits.recoveries.index');
+    Route::get('admin/credits/{invoice_number}/payment', 'Backend\InvoiceController@showCreditPaymentForm')->name('admin.credits.payments.create');
+    Route::put('admin/credits/{invoice_number}/payment', 'Backend\InvoiceController@payCredit')->name('admin.credits.payments.update');
+    Route::get('admin/credits/reports/recovery/excel', 'Backend\InvoiceController@exportRecoveryReportExcel')->name('admin.credits.reports.recovery.excel');
+    Route::get('admin/credits/reports/recovery/pdf', 'Backend\InvoiceController@exportRecoveryReportPdf')->name('admin.credits.reports.recovery.pdf');
+    Route::get('admin/credits/reports/client-global/excel', 'Backend\InvoiceController@exportClientGlobalInvoiceExcel')->name('admin.credits.reports.client-global.excel');
+    Route::get('admin/credits/reports/client-global/pdf', 'Backend\InvoiceController@exportClientGlobalInvoicePdf')->name('admin.credits.reports.client-global.pdf');
+    Route::get('admin/credit-invoices/list', 'Backend\InvoiceController@listCreditReceivables')->name('admin.credit-invoices.list');
+    Route::get('admin/credit-invoices/recoveries', 'Backend\InvoiceController@listRecoveredCredits')->name('admin.credit-invoices.recoveries');
+    Route::get('admin/payer-facture-credit/{invoice_number}', 'Backend\InvoiceController@showCreditPaymentForm')->name('admin.payer-facture.credit');
+    Route::put('admin/facture-credit/{invoice_number}/payer', 'Backend\InvoiceController@payCredit')->name('admin.facture-credit.payer');
     // Réimpression (sans transmission OBR ni écriture DB)
     Route::get('admin/invoice/{invoice_number}/reprint', 'Backend\InvoiceController@reprint')->name('admin.invoice.reprint');
     // Annulation d'une facture en brouillon (OBR + motif)
@@ -227,10 +239,17 @@ Route::group(['prefix' => 'admin'], function () {
 
     //materials routes
     Route::get('Egotek/materials/index', 'Backend\MaterialController@index')->name('admin.materials.index');
+    Route::get('Egotek/materials/export-excel', 'Backend\MaterialController@exportToExcel')->name('admin.materials.export-excel');
+    Route::get('Egotek/materials/export-pdf', 'Backend\MaterialController@exportToPdf')->name('admin.materials.export-pdf');
+    Route::get('Egotek/immobilisations/export-excel', 'Backend\ImmobilisationExportController@exportExcel')->name('admin.immobilisations.export-excel');
+    Route::get('Egotek/immobilisations/export-pdf', 'Backend\ImmobilisationExportController@exportPdf')->name('admin.immobilisations.export-pdf');
     Route::get('Egotek/materials/create', 'Backend\MaterialController@create')->name('admin.materials.create');
     Route::post('Egotek/materials/store', 'Backend\MaterialController@store')->name('admin.materials.store');
     Route::get('Egotek/materials/edit/{id}', 'Backend\MaterialController@edit')->name('admin.materials.edit');
     Route::put('Egotek/materials/update/{id}', 'Backend\MaterialController@update')->name('admin.materials.update');
+    Route::get('Egotek/materials/{id}/depreciation', 'Backend\MaterialController@depreciation')->name('admin.materials.depreciation');
+    Route::get('Egotek/materials/{id}/depreciation/excel', 'Backend\MaterialController@exportDepreciationExcel')->name('admin.materials.depreciation.export-excel');
+    Route::get('Egotek/materials/{id}/depreciation/pdf', 'Backend\MaterialController@exportDepreciationPdf')->name('admin.materials.depreciation.export-pdf');
     Route::delete('Egotek/materials/destroy/{id}', 'Backend\MaterialController@destroy')->name('admin.materials.destroy');
     Route::post('Egotek/materials/toggle-status/{id}', 'Backend\MaterialController@toggleStatus')->name('admin.materials.toggle-status');
 
@@ -313,6 +332,7 @@ Route::group(['prefix' => 'admin'], function () {
     Route::get('Egotek/finished-goods-store/create', 'Backend\FinishedGoodsStoreController@create')->name('admin.finished-goods-store.create');
     Route::post('Egotek/finished-goods-store/store', 'Backend\FinishedGoodsStoreController@store')->name('admin.finished-goods-store.store');
     Route::get('Egotek/finished-goods-store/show/{code}', 'Backend\FinishedGoodsStoreController@show')->name('admin.finished-goods-store.show');
+    Route::post('Egotek/finished-goods-store/resync/{code}', 'Backend\FinishedGoodsStoreController@resyncQuantities')->name('admin.finished-goods-store.resync');
     Route::get('Egotek/finished-goods-store/status/{code}', 'Backend\FinishedGoodsStoreController@storeStatus')->name('admin.finished-goods-store.storeStatus');
     Route::get('Egotek/finished-goods-store/export-to-excel/{code}', 'Backend\FinishedGoodsStoreController@exportToExcel')->name('admin.finished-goods-store.exportToExcel');
     Route::get('Egotek/finished-goods-store/edit/{id}', 'Backend\FinishedGoodsStoreController@edit')->name('admin.finished-goods-store.edit');
@@ -854,6 +874,9 @@ Route::group(['prefix' => 'admin'], function () {
 
     //material stockouts routes
     Route::get('Egotek/material-stockouts/index', 'Backend\MaterialStockoutController@index')->name('admin.material-stockouts.index');
+    Route::get('Egotek/stockout-regularization', 'Backend\StockoutRegularizationController@index')->name('admin.stockout-regularization.index');
+    Route::post('Egotek/stockout-regularization/{module}/all', 'Backend\StockoutRegularizationController@rectifyAll')->name('admin.stockout-regularization.all');
+    Route::post('Egotek/stockout-regularization/{module}/{stockout_no}', 'Backend\StockoutRegularizationController@rectify')->name('admin.stockout-regularization.rectify');
     Route::get('Egotek/material-stockouts/choose', 'Backend\MaterialStockoutController@choose')->name('admin.material-stockouts.choose');
     Route::get('Egotek/material-stockouts/create', 'Backend\MaterialStockoutController@create')->name('admin.material-stockouts.create');
     Route::get('Egotek/material-stockouts/createFromBig', 'Backend\MaterialStockoutController@createFromBig')->name('admin.material-stockouts.createFromBig');
@@ -1528,6 +1551,21 @@ Route::group(['prefix' => 'admin'], function () {
     Route::get('accounting/journal-entry/search-accounts','Backend\Accounting\AccountJournalEntryController@searchAccounts')->name('admin.journal-entry.search-accounts');
     Route::get('accounting/journal-entry/print','Backend\Accounting\AccountJournalEntryController@print')->name('admin.journal-entry.print');
     Route::get('accounting/journal-entry/export-excel','Backend\Accounting\AccountJournalEntryController@exportToExcel')->name('admin.journal-entry.export-excel');
+
+    //-----exercices / clôture comptable (4 étapes)-----
+    Route::get('accounting/exercises/index', 'Backend\Accounting\AccountExerciseController@index')->name('admin.accounting-exercises.index');
+    Route::get('accounting/exercises/create', 'Backend\Accounting\AccountExerciseController@create')->name('admin.accounting-exercises.create');
+    Route::post('accounting/exercises/store', 'Backend\Accounting\AccountExerciseController@store')->name('admin.accounting-exercises.store');
+    Route::get('accounting/exercises/preview', 'Backend\Accounting\AccountExerciseController@preview')->name('admin.accounting-exercises.preview');
+    Route::post('accounting/exercises/close', 'Backend\Accounting\AccountExerciseController@close')->name('admin.accounting-exercises.close');
+    Route::get('accounting/exercises/preview-result', 'Backend\Accounting\AccountExerciseController@previewResult')->name('admin.accounting-exercises.preview-result');
+    Route::post('accounting/exercises/close-result', 'Backend\Accounting\AccountExerciseController@closeResult')->name('admin.accounting-exercises.close-result');
+    Route::get('accounting/exercises/preview-ran', 'Backend\Accounting\AccountExerciseController@previewRan')->name('admin.accounting-exercises.preview-ran');
+    Route::post('accounting/exercises/close-ran', 'Backend\Accounting\AccountExerciseController@closeRan')->name('admin.accounting-exercises.close-ran');
+    Route::post('accounting/exercises/lock', 'Backend\Accounting\AccountExerciseController@lock')->name('admin.accounting-exercises.lock');
+    Route::get('accounting/exercises/show/{id}', 'Backend\Accounting\AccountExerciseController@show')->name('admin.accounting-exercises.show');
+    Route::put('accounting/exercises/lock-period/{periodId}', 'Backend\Accounting\AccountExerciseController@lockPeriod')->name('admin.accounting-exercises.lock-period');
+    //-----exercices / clôture comptable-----
     //-----balance-----
     Route::get('accounting/accounts-balance/index','Backend\Accounting\AccountLedgerController@balance')->name('admin.accounts-balance.index');
     Route::get('accounting/accounts-balance/export-pdf','Backend\Accounting\AccountLedgerController@exportPDF')->name('admin.accounts-balance.export-pdf');

@@ -389,8 +389,11 @@
                                                     </div>
                                                     <form action="{{ route('admin.settings.backup-database') }}" method="POST" id="backup-form-{{ $setting->id }}">
                                                         @csrf
-                                                        <button type="submit" class="btn btn-primary btn-lg">
-                                                            <i class="fa fa-download"></i> @lang('messages.download_database_backup')
+                                                        <button type="submit" name="format" value="sql" class="btn btn-primary btn-lg">
+                                                            <i class="fa fa-download"></i> @lang('messages.download_database_backup') (.sql)
+                                                        </button>
+                                                        <button type="submit" name="format" value="zip" class="btn btn-success btn-lg">
+                                                            <i class="fa fa-file-archive-o"></i> @lang('messages.download_database_backup') (.zip)
                                                         </button>
                                                     </form>
                                                 </div>

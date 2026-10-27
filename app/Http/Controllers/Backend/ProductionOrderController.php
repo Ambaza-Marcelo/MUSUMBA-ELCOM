@@ -1368,7 +1368,7 @@ class ProductionOrderController extends Controller
                     if (!$rawMat || !$rawMat->default_account_id) {
                         $rmLabel = $rawMat ? ($rawMat->name ?? '#' . $material->r_material_id) : ('#' . $material->r_material_id);
                         throw new \RuntimeException(
-                            'Compte de consommation (classe 6) manquant pour la matière première : ' . $rmLabel . '. Renseignez default_account_id sur la matière.'
+                            'Compte de consommation (classe 6) manquant pour la matière première : ' . $rmLabel . '. Renseignez son compte sur la fiche de la matière.'
                         );
                     }
                 }
@@ -1421,7 +1421,7 @@ class ProductionOrderController extends Controller
             if ($totalFinishedGoodsValue > 0) {
                 if (!$productionOffsetAccountId) {
                     throw new \RuntimeException(
-                        'Compte de production (prod_bg_account_id ou prod_sm_account_id) manquant dans les paramètres comptables actifs.'
+                        'Compte de production manquant dans les paramètres comptables actifs.'
                     );
                 }
                 foreach ($finishedGoods as $good) {

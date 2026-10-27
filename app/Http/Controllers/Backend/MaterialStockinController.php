@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Backend;
 
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use App\Http\Controllers\Backend\Concerns\GuardsStockApproval;
 use App\Http\Controllers\Controller;
+use App\Services\Material\MaterialFlowOrchestrator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,7 @@ use Mail;
 class MaterialStockinController extends Controller
 {
     use GuardsStockApproval;
+    use GuardsAccountingPeriod;
     //
     public $user;
 
@@ -842,6 +845,10 @@ class MaterialStockinController extends Controller
             return back();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($stockinHeader->date ?? optional($stockinHeader)->created_at)) {
+            return back();
+        }
+
         $datas = MaterialStockinDetail::where('stockin_no', $stockin_no)->get();
 
         // Initialize arrays
@@ -849,8 +856,22 @@ class MaterialStockinController extends Controller
         $reportExtraBigStoreData = [];
         $reportSmallStoreData = [];
         $flag_md = 0;
+        $orchestrator = app(MaterialFlowOrchestrator::class);
+        $immaterialActivations = [];
 
         foreach($datas as $data){
+
+                $materialModel = Material::find($data->material_id);
+                if ($materialModel && !$orchestrator->affectsPhysicalStock($materialModel)) {
+                    // CAS 2 : non stockable — pas de mouvement physique
+                    $amount = (float) ($data->total_amount_purchase ?? (($data->quantity ?? 0) * ($data->purchase_price ?? 0)));
+                    $immaterialActivations[] = [
+                        'material' => $materialModel,
+                        'detail' => $data,
+                        'amount' => $amount,
+                    ];
+                    continue;
+                }
 
                 if ($data->store_type == 'md') {
                     $code_store_destination = MaterialBigStore::where('id',$data->dest_bg_store_id)->value('code');
@@ -1159,6 +1180,41 @@ class MaterialStockinController extends Controller
                 AccountJournalEntryDetail::insert($insert_journal_credit_eaj_data_acc2);
             
                 //end credit operation
+        }
+
+        if (!empty($immaterialActivations)) {
+            $m_eaj_account_id = AccountSetting::where('active',1)->value('m_eaj_account_id');
+            if (empty($m_eaj_account_id)) {
+                DB::rollback();
+                session()->flash('error', __('messages.approval_accounts_required'));
+                return redirect()->back();
+            }
+            $immaterialJournal = [];
+            foreach ($immaterialActivations as $row) {
+                $mat = $row['material'];
+                $detail = $row['detail'];
+                $amount = (float) $row['amount'];
+                if ($amount <= 0) { continue; }
+                try {
+                    $debitAccountId = $orchestrator->resolveStockinDebitAccountId($mat, null);
+                } catch (\Throwable $ex) {
+                    DB::rollback();
+                    session()->flash('error', $ex->getMessage());
+                    return redirect()->back();
+                }
+                $immaterialJournal[] = $orchestrator->buildJournalLine(
+                    $detail->date, $detail->stockin_no, $detail->description,
+                    $debitAccountId, $amount, 0,
+                    ($detail->description ?? '') . ' - Immobilisation ' . $mat->name
+                );
+                $immaterialJournal[] = $orchestrator->buildJournalLine(
+                    $detail->date, $detail->stockin_no, $detail->description,
+                    (int) $m_eaj_account_id, 0, $amount,
+                    ($detail->description ?? '') . ' - Immobilisation ' . $mat->name
+                );
+                $orchestrator->activateOnApprovedEntry($mat, $detail->date ?? now(), $amount);
+            }
+            $orchestrator->insertJournalLines($immaterialJournal);
         }
 
         MaterialStockin::where('stockin_no', '=', $stockin_no)

@@ -17,11 +17,13 @@ use App\Models\Accounting\AccountAccount;
 use App\Models\Accounting\AccountLedger;
 use App\Models\Accounting\AccountJournalEntryDetail;
 use App\Models\Accounting\AccountSetting;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use Carbon\Carbon;
 use PDF;
 
 class AccountPaymentAdvanceController extends Controller
 {
+    use GuardsAccountingPeriod;
     //
     public $user;
 
@@ -321,6 +323,10 @@ class AccountPaymentAdvanceController extends Controller
         // Only allow approval if status is 2 (confirmed)
         if ($data->status != 2) {
             session()->flash('error', 'advance payment must be confirmed before approval');
+            return redirect()->back();
+        }
+
+        if ($this->abortIfAccountingPeriodLocked($data->date)) {
             return redirect()->back();
         }
 

@@ -247,6 +247,12 @@ class AccountSettingController extends Controller
             'adv_payment_account_id' => 'nullable',
             'prod_bg_account_id' => 'nullable',
             'prod_sm_account_id' => 'nullable',
+            'result_account_id' => 'nullable|exists:account_accounts,id',
+            'ran_profit_account_id' => 'nullable|exists:account_accounts,id',
+            'ran_loss_account_id' => 'nullable|exists:account_accounts,id',
+            'profit_account_id' => 'nullable|exists:account_accounts,id',
+            'loss_account_id' => 'nullable|exists:account_accounts,id',
+            'retained_earnings_account_id' => 'nullable|exists:account_accounts,id',
         ]);
 
         $setting = AccountSetting::findOrFail($id);
@@ -298,6 +304,12 @@ class AccountSettingController extends Controller
         $setting->adv_payment_account_id = $request->adv_payment_account_id;
         $setting->prod_bg_account_id = $request->prod_bg_account_id;
         $setting->prod_sm_account_id = $request->prod_sm_account_id;
+        $setting->result_account_id = $request->result_account_id ?: null;
+        $setting->ran_profit_account_id = $request->ran_profit_account_id ?: null;
+        $setting->ran_loss_account_id = $request->ran_loss_account_id ?: null;
+        $setting->profit_account_id = $request->profit_account_id ?: $setting->profit_account_id;
+        $setting->loss_account_id = $request->loss_account_id ?: $setting->loss_account_id;
+        $setting->retained_earnings_account_id = $request->retained_earnings_account_id ?: $setting->retained_earnings_account_id;
         $setting->currency_id = $request->currency_id;
         $setting->bank_statements_source = $request->bank_statements_source;
         $setting->exercise_id = $request->exercise_id;

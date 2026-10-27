@@ -1,28 +1,31 @@
-/* MUSUMBA ELCOM — Sidebar usine (poteaux béton armé) */
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-
+/* MUSUMBA ELCOM — Sidebar (Brand Identity) */
 :root {
-    --sb-steel: #1c2636;
-    --sb-slate: #243044;
-    --sb-edge: #2e3c52;
-    --sb-amber: #e0891a;
-    --sb-amber-hot: #f5a623;
-    --sb-teal: #1a6b63;
-    --sb-teal-bright: #24968a;
-    --sb-text: #b8c0ce;
-    --sb-text-dim: #8a94a6;
-    --sb-white: #f4f1ea;
+    --sb-steel: #1e1d24;
+    --sb-slate: #3f424c;
+    --sb-edge: #2a2b33;
+    --sb-amber: #eba91b;
+    --sb-amber-hot: #f0b429;
+    --sb-text: #c8cad3;
+    --sb-text-dim: #6f7180;
+    --sb-white: #ffffff;
     --sb-width: 280px;
 }
 
-/* Shell */
 .sidebar-menu {
+    position: fixed;
+    left: 0;
+    top: 0;
     width: var(--sb-width);
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     background:
-        linear-gradient(180deg, #1a2230 0%, var(--sb-steel) 42%, #18202c 100%);
-    box-shadow: 8px 0 32px rgba(16, 22, 32, 0.35);
-    border-right: 1px solid rgba(245, 166, 35, 0.12);
-    font-family: 'IBM Plex Sans', sans-serif;
+        linear-gradient(180deg, #141318 0%, var(--sb-steel) 45%, #0c0c10 100%);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+    border-right: 1px solid rgba(235, 169, 27, 0.22);
+    font-family: 'Montserrat', sans-serif;
     z-index: 1040;
 }
 
@@ -38,8 +41,8 @@
     padding-left: 0;
 }
 
-/* Brand header */
 .sidebar-header {
+    flex-shrink: 0;
     padding: 0;
     background: transparent;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -65,9 +68,23 @@
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(ellipse at 0% 0%, rgba(224, 137, 26, 0.22), transparent 55%),
-        radial-gradient(ellipse at 100% 100%, rgba(26, 107, 99, 0.18), transparent 50%);
+        radial-gradient(ellipse at 0% 0%, rgba(235, 169, 27, 0.28), transparent 55%),
+        radial-gradient(ellipse at 100% 100%, rgba(63, 66, 76, 0.35), transparent 50%);
     pointer-events: none;
+}
+
+.sidebar-brand::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 4px;
+    background: repeating-linear-gradient(
+        -45deg,
+        #000 0 8px,
+        #eba91b 8px 16px
+    );
 }
 
 .sidebar-brand-mark {
@@ -79,14 +96,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
-    background: linear-gradient(145deg, var(--sb-amber) 0%, #b86a0c 100%);
-    color: #1c2636;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-weight: 700;
+    border-radius: 4px;
+    background: linear-gradient(145deg, var(--sb-amber) 0%, #c48a12 100%);
+    color: #000;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 800;
     font-size: 1.05rem;
     letter-spacing: 0.04em;
-    box-shadow: 0 6px 16px rgba(224, 137, 26, 0.35);
+    box-shadow: 0 6px 16px rgba(235, 169, 27, 0.35);
 }
 
 .sidebar-brand-logo {
@@ -98,8 +115,8 @@
     object-fit: contain;
     border-radius: 50%;
     background: #fff;
-    border: 2px solid rgba(245, 166, 35, 0.55);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.28);
+    border: 2px solid rgba(235, 169, 27, 0.7);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
     padding: 2px;
 }
 
@@ -111,11 +128,11 @@
 
 .sidebar-brand-text strong {
     display: block;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    line-height: 1.05;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.1;
     color: #fff;
     text-transform: uppercase;
 }
@@ -123,8 +140,8 @@
 .sidebar-brand-text span {
     display: block;
     margin-top: 0.28rem;
-    font-size: 0.68rem;
-    font-weight: 500;
+    font-size: 0.62rem;
+    font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--sb-amber-hot);
@@ -138,35 +155,87 @@
     width: 100%;
 }
 
-/* Menu area */
 .main-menu {
-    height: calc(100% - 88px);
-    padding: 0.65rem 0.55rem 1.25rem 0.55rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto !important;
+    overflow: hidden !important;
+    padding: 0.65rem 0.55rem 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Native scroll — remplace slimScroll (meilleur sur mobile et menus longs) */
+.main-menu > .slimScrollDiv {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex !important;
+    flex-direction: column;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+}
+
+.main-menu .menu-inner {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    scroll-padding-bottom: 1.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(235, 169, 27, 0.65) transparent;
+}
+
+.main-menu .menu-inner::-webkit-scrollbar {
+    width: 6px;
+}
+
+.main-menu .menu-inner::-webkit-scrollbar-thumb {
+    background: rgba(235, 169, 27, 0.55);
+    border-radius: 6px;
+}
+
+.main-menu .menu-inner::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.main-menu .slimScrollBar,
+.main-menu .slimScrollRail {
+    display: none !important;
 }
 
 .menu-inner {
     padding-right: 0.2rem;
+    padding-bottom: 0.5rem;
 }
 
-/* Metis items */
+.metismenu {
+    padding-bottom: 1.25rem;
+}
+
 .metismenu > li > a {
     padding-left: 0.95rem !important;
 }
 
 .metismenu li a {
     color: var(--sb-text);
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     font-weight: 500;
     padding: 0.72rem 0.9rem;
-    border-radius: 6px;
+    border-radius: 4px;
     margin: 0.12rem 0;
     letter-spacing: 0.01em;
     text-transform: none;
-    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+    transition: background 0.2s ease, color 0.2s ease;
 }
 
 .metismenu li a i {
-    color: var(--sb-teal-bright);
+    color: var(--sb-amber);
     width: 1.15rem;
     text-align: center;
     font-size: 0.95rem;
@@ -194,7 +263,7 @@
 .metismenu li:hover > a,
 .metismenu li.active > a {
     color: #fff;
-    background: linear-gradient(90deg, rgba(224, 137, 26, 0.22) 0%, rgba(26, 107, 99, 0.18) 100%);
+    background: linear-gradient(90deg, rgba(235, 169, 27, 0.28) 0%, rgba(63, 66, 76, 0.35) 100%);
     box-shadow: inset 3px 0 0 var(--sb-amber);
 }
 
@@ -212,7 +281,7 @@
 
 .metismenu li li a {
     padding: 0.48rem 0.7rem;
-    font-size: 0.78rem;
+    font-size: 0.76rem;
     color: var(--sb-text-dim);
     border-radius: 4px;
 }
@@ -220,8 +289,8 @@
 .metismenu li li a:hover,
 .metismenu li li.active > a {
     color: #fff;
-    background: rgba(36, 150, 138, 0.18);
-    box-shadow: inset 2px 0 0 var(--sb-teal-bright);
+    background: rgba(235, 169, 27, 0.14);
+    box-shadow: inset 2px 0 0 var(--sb-amber);
 }
 
 .metismenu li li a i {
@@ -231,7 +300,7 @@
 
 .metismenu li li:hover > a i,
 .metismenu li li.active > a i {
-    color: var(--sb-teal-bright);
+    color: var(--sb-amber);
 }
 
 .metismenu li li a:after {
@@ -239,7 +308,6 @@
     transform: translateY(-50%);
 }
 
-/* Section label (brand / factory name) */
 .metismenu > li.mm-label {
     margin: 0.35rem 0 0.15rem;
     pointer-events: none;
@@ -256,19 +324,19 @@
     gap: 0.55rem;
     margin: 0.35rem 0.2rem;
     padding: 0.55rem 0.75rem;
-    border-radius: 6px;
+    border-radius: 4px;
     background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(245, 166, 35, 0.18);
+    border: 1px solid rgba(235, 169, 27, 0.25);
     color: var(--sb-amber-hot);
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 0.95rem;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
 }
 
 .metismenu > li.mm-label .sidebar-section-label i {
-    color: var(--sb-teal-bright);
+    color: var(--sb-amber);
 }
 
 .sidebar-menu hr {
@@ -277,24 +345,22 @@
     margin: 0.5rem 0.75rem;
 }
 
-/* Slimscroll bar */
 .sidebar-menu .slimScrollBar {
     background: var(--sb-amber) !important;
-    opacity: 0.35 !important;
+    opacity: 0.4 !important;
     width: 4px !important;
 }
 
-/* Mobile toggle button */
 .nav-btn {
     display: none;
     width: 42px;
     height: 42px;
     margin: 0;
     padding: 10px 9px;
-    border: 1px solid rgba(28, 38, 54, 0.12);
-    border-radius: 6px;
+    border: 1px solid rgba(30, 29, 36, 0.12);
+    border-radius: 4px;
     background: #fff;
-    box-shadow: 0 4px 14px rgba(28, 38, 54, 0.1);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
     cursor: pointer;
     align-items: center;
     justify-content: center;
@@ -335,13 +401,12 @@
     background: var(--sb-steel);
 }
 
-/* Overlay when sidebar open on small screens */
 .sidebar-backdrop {
     display: none;
     position: fixed;
     inset: 0;
     z-index: 1035;
-    background: rgba(16, 22, 32, 0.55);
+    background: rgba(0, 0, 0, 0.55);
     backdrop-filter: blur(2px);
     opacity: 0;
     transition: opacity 0.25s ease;
@@ -352,7 +417,6 @@
     opacity: 1;
 }
 
-/* Header polish with toggle */
 .header-area .header-left-tools {
     display: flex;
     align-items: center;
@@ -365,17 +429,17 @@
     object-fit: contain;
     border-radius: 50%;
     background: #fff;
-    border: 1px solid rgba(28, 38, 54, 0.12);
-    box-shadow: 0 3px 10px rgba(28, 38, 54, 0.1);
+    border: 1px solid rgba(235, 169, 27, 0.45);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
     padding: 2px;
 }
 
 .header-area .header-plant-title {
     margin: 0;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--sb-steel);
     line-height: 1.15;
@@ -383,11 +447,10 @@
 
 .header-area .header-plant-title em {
     font-style: normal;
-    color: var(--sb-teal);
+    color: var(--sb-amber);
     font-weight: 600;
 }
 
-/* ========== Responsive ========== */
 @media (max-width: 1364px) {
     .page-container,
     .sbar_collapsed.page-container {
@@ -400,6 +463,7 @@
 
     .sidebar-menu {
         width: min(var(--sb-width), 86vw);
+        max-width: 320px;
         left: 0;
         transition: left 0.3s ease, transform 0.3s ease;
     }
@@ -412,6 +476,17 @@
         display: block;
         opacity: 1;
     }
+
+    /* Zone tactile plus large sur tablette / mobile */
+    .metismenu li a {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+    }
+
+    .metismenu li li a {
+        min-height: 40px;
+    }
 }
 
 @media (max-width: 767px) {
@@ -420,20 +495,28 @@
     }
 
     .sidebar-brand-text strong {
-        font-size: 1.25rem;
+        font-size: 0.95rem;
     }
 
     .sidebar-brand-text span {
-        font-size: 0.62rem;
+        font-size: 0.58rem;
     }
 
     .metismenu li a {
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         padding: 0.8rem 0.95rem;
     }
 
+    .main-menu .menu-inner {
+        padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    .metismenu {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0));
+    }
+
     .header-area .header-plant-title {
-        font-size: 0.95rem;
+        font-size: 0.85rem;
         max-width: 42vw;
         white-space: nowrap;
         overflow: hidden;

@@ -36,6 +36,15 @@
     #{{ $modalId }} .modal-dialog {
         overflow: visible;
     }
+    #{{ $modalId }}.modal {
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+    #{{ $modalId }} .stock-report-ac-group .ajax-ac-wrap {
+        position: relative;
+        display: block;
+        width: 100%;
+    }
 </style>
 
 <div class="mb-3">
@@ -200,6 +209,7 @@
                 $hidden: $storeHidden,
                 items: storeItems,
                 minChars: 1,
+                appendToBody: true,
                 renderItem: function(item){
                     return '<div><strong>' + escHtml(item.text) + '</strong></div>';
                 },
@@ -217,16 +227,19 @@
 
         if ($articleInput.length && storeContext){
             var articleStoreWarning = $('#' + modalId + '_article_store_warning');
-            var articleSearchAlert = @json(__('messages.stock_report_select_store_for_article'));
 
             attachAjaxAutocomplete({
                 $input: $articleInput,
                 $hidden: $articleHidden,
                 url: @json(route('admin.autocomplete.stock-report-articles')),
                 minChars: 1,
+                appendToBody: true,
                 validateBeforeSearch: function(){
                     var code = resolveStockReportStoreCode($storeHidden, $storeInput, storeItems);
                     if (code) {
+                        if (!$storeHidden.val()) {
+                            $storeHidden.val(code);
+                        }
                         articleStoreWarning.addClass('d-none');
                         return true;
                     }
@@ -240,7 +253,9 @@
                     };
                 },
                 renderItem: function(item){
-                    return '<div><strong>' + escHtml(item.text || item.name || '') + '</strong></div>';
+                    var label = item.text || item.name || '';
+                    var code = item.code ? ('<small class="text-muted d-block">' + escHtml(item.code) + '</small>') : '';
+                    return '<div><strong>' + escHtml(label) + '</strong>' + code + '</div>';
                 },
                 onSelect: function(item){
                     $articleHidden.val(item.id || '');
@@ -267,6 +282,12 @@
                 }
             });
         }
+
+        $modal.off('shown.bs.modal.stockReport').on('shown.bs.modal.stockReport', function(){
+            if (($articleInput.val() || '').trim().length >= 1 && resolveStockReportStoreCode($storeHidden, $storeInput, storeItems)) {
+                $articleInput.trigger('input');
+            }
+        });
 
         $modal.data('stockReportReady', true);
         return true;

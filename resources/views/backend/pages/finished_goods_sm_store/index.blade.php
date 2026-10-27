@@ -98,17 +98,6 @@
                                                 <i class="fa fa-edit"></i> @lang('messages.edit')
                                             </a>
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('finished_product_sm_stock.delete'))
-                                            <a class="btn btn-danger btn-sm text-white" href="{{ route('admin.finished-goods-sm-store.destroy', $finished_good->id) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $finished_good->id }}').submit(); }">
-                                                <i class="fa fa-trash"></i> @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $finished_good->id }}" action="{{ route('admin.finished-goods-sm-store.destroy', $finished_good->id) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                        @endif
                                     </td>
                                 </tr>
                                @endforeach

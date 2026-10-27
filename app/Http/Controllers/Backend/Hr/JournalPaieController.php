@@ -25,6 +25,7 @@ use App\Models\Accounting\AccountAccount;
 use App\Models\Accounting\AccountCurrency;
 use App\Models\Accounting\AccountSetting;
 use App\Exports\Hr\JournalPaieExport;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use Carbon\Carbon;
 use Validator;
 use Excel;
@@ -32,6 +33,7 @@ use PDF;
 
 class JournalPaieController extends Controller
 {
+    use GuardsAccountingPeriod;
     //
     public $user;
 
@@ -115,6 +117,7 @@ class JournalPaieController extends Controller
         if($latest){
             $datas = HrPaiement::where('code',$latest->code)->get();
             foreach ($datas as $data) {
+                $carry = $this->buildCarryForwardPayrollData($data);
                 $paiement = new HrPaiement();
                 $paiement->employe_id = $data->employe_id;
                 $paiement->code = $code;
@@ -122,29 +125,27 @@ class JournalPaieController extends Controller
                 $paiement->date_fin = $request->date_fin;
                 $paiement->etat = 0;
                 $paiement->somme_salaire_base = $data->somme_salaire_base;
-                $paiement->somme_salaire_brut_imposable = $data->somme_salaire_brut_imposable;
-                $paiement->somme_salaire_brut_non_imposable = $data->somme_salaire_brut_non_imposable;
-                $paiement->somme_salaire_net_imposable = $data->somme_salaire_net_imposable;
-                $paiement->somme_salaire_net_non_imposable = $data->somme_salaire_net_non_imposable;
+                $paiement->somme_salaire_brut_imposable = $carry['salaire_brut'];
+                $paiement->somme_salaire_brut_non_imposable = $carry['salaire_brut'];
+                $paiement->somme_salaire_net_imposable = $carry['net'];
+                $paiement->somme_salaire_net_non_imposable = $carry['net'];
                 $paiement->nbre_jours_ouvrables = $data->nbre_jours_ouvrables;
                 $paiement->code_banque = $data->code_banque;
                 $paiement->code_departement = $data->code_departement;
                 $paiement->code_service = $data->code_service;
                 $paiement->numero_compte = $data->numero_compte;
-                $paiement->somme_impot = $data->somme_impot;
-                $paiement->somme_cotisation_inss = $data->somme_cotisation_inss;
-                $paiement->inss_employeur = $data->inss_employeur;
-                $paiement->assurance_maladie_employe = $data->assurance_maladie_employe;
-                $paiement->assurance_maladie_employeur = $data->assurance_maladie_employeur;
-                $paiement->indemnite_deplacement = $data->indemnite_deplacement;
-                $paiement->indemnite_logement = $data->indemnite_logement;
-                $paiement->allocation_familiale = $data->allocation_familiale;
+                $paiement->somme_impot = $carry['somme_impot'];
+                $paiement->somme_cotisation_inss = $carry['somme_cotisation_inss'];
+                $paiement->inss_employeur = $carry['inss_employeur'];
+                $paiement->assurance_maladie_employe = $carry['assurance_maladie_employe'];
+                $paiement->assurance_maladie_employeur = $carry['assurance_maladie_employeur'];
+                $paiement->indemnite_deplacement = $carry['indemnite_deplacement'];
+                $paiement->indemnite_logement = $carry['indemnite_logement'];
+                $paiement->allocation_familiale = 0;
                 $paiement->prime_fonction = $data->prime_fonction;
-                $paiement->soins_medicaux = $data->soins_medicaux ?? 0;
-                $paiement->autre_retenue = $data->autre_retenue ?? 0;
-                // Intégration automatique des avances sur salaire pour le nouveau journal
-                $paiement->retenue_pret = $this->computeLoanRetentionForPeriod($data->employe_id, $request->date_debut);
-                list($paiement->somme_salaire_net_imposable, $paiement->somme_salaire_net_non_imposable) = $this->recalculateNetFromPaiementData($data, $paiement->retenue_pret);
+                $paiement->soins_medicaux = 0;
+                $paiement->autre_retenue = 0;
+                $paiement->retenue_pret = 0;
                 $paiement->company_id = $data->company_id;
                 $paiement->created_by = $this->user->name;
                 $paiement->save();
@@ -152,7 +153,7 @@ class JournalPaieController extends Controller
         }
      
     
-        session()->flash('success', 'Journal Paie est créé !!');
+        session()->flash('success', 'Journal Paie est créé. Les fiches du mois précédent ont été reportées, sauf Retenue Prêt, Autres Retenues, Soins Médicaux et Allocations Familiales.');
 
         return redirect()->back();
     }
@@ -274,6 +275,10 @@ class JournalPaieController extends Controller
 
 
             $data = HrJournalPaie::where('code',$code)->first();
+
+            if ($data && $this->abortIfAccountingPeriodLocked($data->date ?? $data->created_at)) {
+                return redirect()->back();
+            }
 
             //start accounting
             //start basic salary debit operations
@@ -718,8 +723,7 @@ class JournalPaieController extends Controller
             if ($previous) {
                 $datas = HrPaiement::where('code', $previous->code)->get();
                 foreach ($datas as $data) {
-                    $retenuePret = $this->computeLoanRetentionForPeriod($data->employe_id, $request->date_debut);
-                    list($netImposable, $netNonImposable) = $this->recalculateNetFromPaiementData($data, $retenuePret);
+                    $carry = $this->buildCarryForwardPayrollData($data);
 
                     $paiement = new HrPaiement();
                     $paiement->employe_id = $data->employe_id;
@@ -728,27 +732,27 @@ class JournalPaieController extends Controller
                     $paiement->date_fin = $request->date_fin;
                     $paiement->etat = 0;
                     $paiement->somme_salaire_base = $data->somme_salaire_base;
-                    $paiement->somme_salaire_brut_imposable = $data->somme_salaire_brut_imposable;
-                    $paiement->somme_salaire_brut_non_imposable = $data->somme_salaire_brut_non_imposable;
-                    $paiement->somme_salaire_net_imposable = $netImposable;
-                    $paiement->somme_salaire_net_non_imposable = $netNonImposable;
+                    $paiement->somme_salaire_brut_imposable = $carry['salaire_brut'];
+                    $paiement->somme_salaire_brut_non_imposable = $carry['salaire_brut'];
+                    $paiement->somme_salaire_net_imposable = $carry['net'];
+                    $paiement->somme_salaire_net_non_imposable = $carry['net'];
                     $paiement->nbre_jours_ouvrables = $data->nbre_jours_ouvrables;
                     $paiement->code_banque = $data->code_banque;
                     $paiement->code_departement = $data->code_departement;
                     $paiement->code_service = $data->code_service;
                     $paiement->numero_compte = $data->numero_compte;
-                    $paiement->somme_impot = $data->somme_impot;
-                    $paiement->somme_cotisation_inss = $data->somme_cotisation_inss;
-                    $paiement->inss_employeur = $data->inss_employeur;
-                    $paiement->assurance_maladie_employe = $data->assurance_maladie_employe;
-                    $paiement->assurance_maladie_employeur = $data->assurance_maladie_employeur;
-                    $paiement->indemnite_deplacement = $data->indemnite_deplacement;
-                    $paiement->indemnite_logement = $data->indemnite_logement;
-                    $paiement->allocation_familiale = $data->allocation_familiale;
+                    $paiement->somme_impot = $carry['somme_impot'];
+                    $paiement->somme_cotisation_inss = $carry['somme_cotisation_inss'];
+                    $paiement->inss_employeur = $carry['inss_employeur'];
+                    $paiement->assurance_maladie_employe = $carry['assurance_maladie_employe'];
+                    $paiement->assurance_maladie_employeur = $carry['assurance_maladie_employeur'];
+                    $paiement->indemnite_deplacement = $carry['indemnite_deplacement'];
+                    $paiement->indemnite_logement = $carry['indemnite_logement'];
+                    $paiement->allocation_familiale = 0;
                     $paiement->prime_fonction = $data->prime_fonction;
-                    $paiement->soins_medicaux = $data->soins_medicaux ?? 0;
-                    $paiement->autre_retenue = $data->autre_retenue ?? 0;
-                    $paiement->retenue_pret = $retenuePret;
+                    $paiement->soins_medicaux = 0;
+                    $paiement->autre_retenue = 0;
+                    $paiement->retenue_pret = 0;
                     $paiement->company_id = $data->company_id;
                     $paiement->created_by = $this->user->name;
                     $paiement->save();
@@ -762,7 +766,7 @@ class JournalPaieController extends Controller
             $journal_paie->save();
 
             DB::commit();
-            session()->flash('success', 'Journal de paie modifié : fiches recopiées depuis le mois précédent et avances sur salaire intégrées.');
+            session()->flash('success', 'Journal de paie modifié : fiches recopiées depuis le mois précédent, avec remise à zéro de Retenue Prêt, Autres Retenues, Soins Médicaux et Allocations Familiales.');
             return back();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -867,21 +871,38 @@ class JournalPaieController extends Controller
      */
     protected function recalculateNetFromPaiementData($data, float $retenuePret): array
     {
-        $salaireBrut = ($data->somme_salaire_base ?? 0)
-            + ($data->allocation_familiale ?? 0)
-            + ($data->indemnite_logement ?? 0)
-            + ($data->indemnite_deplacement ?? 0)
-            + ($data->prime_fonction ?? 0);
-        $soinsMedicaux = (float) ($data->soins_medicaux ?? 0);
-        $autreRetenue = (float) ($data->autre_retenue ?? 0);
-        $totalDeductions = ($data->somme_cotisation_inss ?? 0)
-            + ($data->assurance_maladie_employe ?? 0)
-            + ($data->somme_impot ?? 0)
-            + $retenuePret
-            + $soinsMedicaux
-            + $autreRetenue;
-        $net = $salaireBrut - $totalDeductions;
-        return [$net, $net];
+        $calc = \App\Support\PayrollCalculator::fromPaiement($data, $retenuePret);
+        return [$calc['net'], $calc['net']];
+    }
+
+    /**
+     * Prépare les montants à reporter dans un nouveau journal.
+     * Certains champs sont toujours remis à zéro pour le nouveau mois.
+     */
+    protected function buildCarryForwardPayrollData($data): array
+    {
+        $calc = \App\Support\PayrollCalculator::calculate(
+            (float) ($data->somme_salaire_base ?? 0),
+            0,
+            (float) ($data->prime_fonction ?? 0)
+        );
+
+        return [
+            'allocation_familiale' => $calc['allocation_familiale'],
+            'indemnite_logement' => $calc['indemnite_logement'],
+            'indemnite_deplacement' => $calc['indemnite_deplacement'],
+            'retenue_pret' => 0,
+            'soins_medicaux' => 0,
+            'autre_retenue' => 0,
+            'salaire_brut' => $calc['rem_brut'],
+            'somme_cotisation_inss' => $calc['inss_trav'],
+            'inss_employeur' => $calc['inss_pens'],
+            'assurance_maladie_employe' => $calc['sante_trav'],
+            'assurance_maladie_employeur' => $calc['sante_qpp'],
+            'somme_impot' => $calc['ire'],
+            'total_deductions' => $calc['tot_retenu'],
+            'net' => $calc['net'],
+        ];
     }
 
     /**

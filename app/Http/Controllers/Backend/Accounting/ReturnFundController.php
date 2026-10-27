@@ -19,11 +19,14 @@ use App\Models\Accounting\AccountLedger;
 use App\Models\Accounting\AccountJournalEntryDetail;
 use App\Models\HrEmploye;
 use App\Models\Supplier;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use Carbon\Carbon;
 use PDF;
 
 class ReturnFundController extends Controller
 {
+    use GuardsAccountingPeriod;
+
     public $user;
 
     public function __construct()
@@ -324,6 +327,10 @@ class ReturnFundController extends Controller
             return redirect()->back();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($return_fund->date)) {
+            return redirect()->back();
+        }
+
         DB::beginTransaction();
         try {
             $cashOutFlow = CashOutFlow::with(['employe', 'supplier'])
@@ -483,7 +490,7 @@ class ReturnFundController extends Controller
         // 2) Achat en espèces → crédit employe->cash_out_account_id
         if (!empty($employeId) && $flag2 === '1' && empty($loanId)) {
             if (!$employe || empty($employe->cash_out_account_id)) {
-                throw new \Exception('Compte sortie de fonds introuvable. Configurez cash_out_account_id sur la fiche employé.');
+                throw new \Exception('Compte sortie de fonds introuvable. Renseignez-le sur la fiche employé.');
             }
 
             return [
@@ -524,7 +531,7 @@ class ReturnFundController extends Controller
 
             foreach ($expenseDetails as $index => $line) {
                 if (empty($line->expense) || empty($line->expense->default_account_id)) {
-                    throw new \Exception('Compte de charge introuvable. Configurez default_account_id sur le type de dépense.');
+                    throw new \Exception('Compte de charge introuvable. Renseignez-le sur le type de dépense.');
                 }
 
                 $accountId = (int) $line->expense->default_account_id;

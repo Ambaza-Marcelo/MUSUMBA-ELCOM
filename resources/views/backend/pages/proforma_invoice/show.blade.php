@@ -406,7 +406,7 @@
                                 <div class="col-md-12">
                                     <div class="card mb-3">
                                         <div class="card-header bg-secondary text-white">
-                                            <h5 class="mb-0">@lang('messages.@lang('messages.status_and_history')')</h5>
+                                            <h5 class="mb-0">@lang('messages.status_and_history')</h5>
                                         </div>
                                         <div class="card-body">
                                             <table class="table table-bordered">

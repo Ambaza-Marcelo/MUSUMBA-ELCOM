@@ -372,27 +372,8 @@ class SalesOrderController extends Controller
 
     public function destroy($sales_order_number)
     {
-        if (is_null($this->user) || !$this->user->can('sales_order.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any sales order !');
-        }
-        try {
-            $sales_order = SalesOrder::where('sales_order_number', $sales_order_number)->firstOrFail();
-            if (Invoice::where('document_no', $sales_order_number)->exists()) {
-                session()->flash('error', 'Impossible de supprimer: une facture existe pour ce bon de commande.');
-                return redirect()->route('admin.sales-order.index');
-            }
-            DB::beginTransaction();
-            SalesOrderDetail::where('sales_order_number', $sales_order_number)->delete();
-            if ($sales_order->document) {
-                Storage::disk('public')->delete($sales_order->document);
-            }
-            $sales_order->delete();
-            DB::commit();
-            session()->flash('success', 'Le bon de commande est supprimé avec succès !!');
-        } catch (\Exception $e) {
-            DB::rollback();
-            session()->flash('error', 'Erreur: ' . $e->getMessage());
-        }
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
         return redirect()->route('admin.sales-order.index');
     }
 

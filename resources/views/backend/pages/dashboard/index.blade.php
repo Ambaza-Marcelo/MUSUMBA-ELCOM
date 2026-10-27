@@ -8,36 +8,36 @@
 @section('styles')
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
     :root {
-        --plant-steel: #1c2636;
-        --plant-slate: #2a3648;
-        --plant-concrete: #8b919a;
-        --plant-dust: #d4d0c8;
-        --plant-sand: #ebe7df;
-        --plant-amber: #e0891a;
-        --plant-amber-hot: #f5a623;
-        --plant-teal: #1a6b63;
-        --plant-teal-bright: #24968a;
+        --plant-steel: #1e1d24;
+        --plant-slate: #3f424c;
+        --plant-concrete: #a7a9ad;
+        --plant-dust: #d3d6e0;
+        --plant-sand: #eeeff8;
+        --plant-amber: #eba91b;
+        --plant-amber-hot: #f0b429;
+        --plant-teal: #6f7180;
+        --plant-teal-bright: #eba91b;
         --plant-danger: #c45c4a;
         --plant-ok: #3d8b6e;
-        --plant-ink: #1a2332;
-        --plant-muted: #5c6675;
+        --plant-ink: #1e1d24;
+        --plant-muted: #6f7180;
         --plant-card: #ffffff;
-        --plant-line: rgba(28, 38, 54, 0.08);
-        --plant-glow: rgba(224, 137, 26, 0.28);
+        --plant-line: rgba(30, 29, 36, 0.1);
+        --plant-glow: rgba(235, 169, 27, 0.35);
     }
 
     .plant-dash {
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         color: var(--plant-ink);
         padding-bottom: 2.5rem;
     }
 
     .plant-dash h1, .plant-dash h2, .plant-dash h3, .plant-dash h4, .plant-dash h5,
     .plant-dash .plant-display {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         letter-spacing: 0.02em;
         text-transform: uppercase;
     }
@@ -49,15 +49,15 @@
         border-radius: 4px;
         margin-bottom: 1.5rem;
         background:
-            linear-gradient(115deg, rgba(28, 38, 54, 0.94) 0%, rgba(42, 54, 72, 0.88) 48%, rgba(26, 107, 99, 0.75) 100%),
+            linear-gradient(115deg, #000000 0%, #1e1d24 48%, #3f424c 100%),
             repeating-linear-gradient(
-                -12deg,
+                -45deg,
                 transparent,
-                transparent 18px,
-                rgba(255, 255, 255, 0.03) 18px,
-                rgba(255, 255, 255, 0.03) 19px
+                transparent 14px,
+                rgba(235, 169, 27, 0.07) 14px,
+                rgba(235, 169, 27, 0.07) 28px
             ),
-            radial-gradient(ellipse at 80% 20%, rgba(224, 137, 26, 0.35), transparent 50%);
+            radial-gradient(ellipse at 80% 20%, rgba(235, 169, 27, 0.4), transparent 50%);
         color: #fff;
         padding: 1.75rem 1.75rem 1.5rem;
         box-shadow: 0 18px 40px rgba(28, 38, 54, 0.22);
@@ -71,7 +71,7 @@
         bottom: -60px;
         width: 220px;
         height: 320px;
-        background: linear-gradient(180deg, rgba(212, 208, 200, 0.18), rgba(139, 145, 154, 0.08));
+        background: linear-gradient(180deg, rgba(235, 169, 27, 0.22), rgba(167, 169, 173, 0.08));
         border-radius: 8px 8px 40% 40%;
         transform: rotate(18deg);
         pointer-events: none;
@@ -84,11 +84,21 @@
         bottom: -40px;
         width: 140px;
         height: 260px;
-        background: linear-gradient(180deg, rgba(235, 231, 223, 0.22), rgba(139, 145, 154, 0.06));
+        background: linear-gradient(180deg, rgba(238, 239, 248, 0.2), rgba(167, 169, 173, 0.06));
         border-radius: 6px 6px 35% 35%;
         transform: rotate(18deg);
         pointer-events: none;
         opacity: 0.85;
+    }
+
+    .plant-hero .plant-hazard {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2;
+        height: 6px;
+        margin: 0;
     }
 
     .plant-hero-inner {
@@ -119,7 +129,7 @@
         object-fit: contain;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.96);
-        border: 2px solid rgba(245, 166, 35, 0.55);
+        border: 2px solid rgba(235, 169, 27, 0.7);
         box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
         padding: 4px;
         margin-bottom: 0.85rem;
@@ -145,11 +155,11 @@
     .plant-hero p {
         margin: 0;
         max-width: 34rem;
-        color: rgba(235, 231, 223, 0.88);
+        color: rgba(238, 239, 248, 0.9);
         font-size: 0.95rem;
         line-height: 1.45;
         text-transform: none;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         letter-spacing: 0;
     }
 
@@ -179,7 +189,7 @@
         border: none;
         color: #fff;
         font-weight: 600;
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 1.15rem;
         min-width: 5rem;
         outline: none;
@@ -237,7 +247,7 @@
         background: var(--plant-amber);
     }
 
-    .plant-kpi.teal::before { background: var(--plant-teal); }
+    .plant-kpi.teal::before { background: var(--plant-amber); }
     .plant-kpi.steel::before { background: var(--plant-steel); }
     .plant-kpi.ok::before { background: var(--plant-ok); }
 
@@ -251,7 +261,7 @@
     }
 
     .plant-kpi-value {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 2rem;
         font-weight: 700;
         line-height: 1;
@@ -299,16 +309,16 @@
         gap: 1rem;
         flex-wrap: wrap;
         padding: 0.95rem 1.25rem;
-        background: linear-gradient(90deg, var(--plant-steel) 0%, var(--plant-slate) 70%, #1a6b63 140%);
+        background: linear-gradient(90deg, #000000 0%, var(--plant-slate) 100%);
         color: #fff;
     }
 
     .plant-panel-head.amber {
-        background: linear-gradient(90deg, var(--plant-steel) 0%, #3d3428 55%, #8a5a12 130%);
+        background: linear-gradient(90deg, #000000 0%, #3f424c 45%, #eba91b 140%);
     }
 
     .plant-panel-head.teal {
-        background: linear-gradient(90deg, var(--plant-steel) 0%, #1e3d45 50%, var(--plant-teal) 130%);
+        background: linear-gradient(90deg, #000000 0%, #3f424c 55%, #6f7180 130%);
     }
 
     .plant-panel-head h5 {
@@ -363,13 +373,13 @@
         font-size: 0.78rem;
         color: var(--plant-muted);
         text-transform: none;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         letter-spacing: 0;
         font-weight: 500;
     }
 
     .plant-metric .amount {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 1.55rem;
         font-weight: 700;
         margin: 0.15rem 0 0.65rem;
@@ -379,7 +389,7 @@
 
     .plant-metric .amount.danger { color: var(--plant-danger); }
     .plant-metric .amount.amber { color: var(--plant-amber); }
-    .plant-metric .amount.teal { color: var(--plant-teal); }
+    .plant-metric .amount.teal { color: var(--plant-slate); }
 
     .plant-metric hr {
         border-top-color: var(--plant-line);
@@ -450,7 +460,7 @@
         align-items: center;
         justify-content: center;
         border-radius: 4px;
-        border: 2px solid var(--plant-teal);
+        border: 2px solid var(--plant-amber);
         background: linear-gradient(145deg, #ffffff 0%, #f3f1ec 100%);
         font-size: 1.45rem;
         color: var(--plant-teal);
@@ -475,7 +485,7 @@
 
     .plant-step-badge.warn {
         background: var(--plant-amber) !important;
-        color: #1c2636 !important;
+        color: #000000 !important;
     }
 
     .plant-step-label {
@@ -484,7 +494,7 @@
         font-weight: 600;
         color: var(--plant-ink);
         line-height: 1.3;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         text-transform: none;
         letter-spacing: 0;
     }
@@ -499,7 +509,7 @@
 
     .plant-note {
         background: linear-gradient(90deg, rgba(26, 107, 99, 0.08), rgba(224, 137, 26, 0.06));
-        border-left: 3px solid var(--plant-teal);
+        border-left: 3px solid var(--plant-amber);
         padding: 0.7rem 1rem;
         margin-bottom: 1rem;
         font-size: 0.82rem;
@@ -533,8 +543,8 @@
 
     .plant-source-link:hover {
         background: #fff;
-        border-color: var(--plant-teal);
-        color: var(--plant-teal);
+        border-color: var(--plant-amber);
+        color: var(--plant-amber);
     }
 
     .plant-source-badge {
@@ -546,7 +556,7 @@
         font-size: 10px;
         font-weight: 700;
         background: var(--plant-amber) !important;
-        color: #1c2636 !important;
+        color: #000000 !important;
     }
 
     .page-title-area {
@@ -610,6 +620,7 @@ Auth::guard('admin')->user()->can('proforma_invoice.view') || Auth::guard('admin
 
             {{-- Hero usine --}}
             <div class="plant-hero">
+                <div class="plant-hazard" aria-hidden="true"></div>
                 <div class="plant-hero-inner">
                     <div>
                         <img
@@ -705,11 +716,11 @@ Auth::guard('admin')->user()->can('proforma_invoice.view') || Auth::guard('admin
                         <div class="col-md-4">
                             <div class="plant-metric">
                                 <h5>@lang('messages.purchases_by_category')</h5>
-                                <p class="muted font-weight-bold" style="color:var(--plant-teal);">@lang('messages.raw_materials')</p>
+                                <p class="muted font-weight-bold" style="color:var(--plant-amber);">@lang('messages.raw_materials')</p>
                                 <p class="muted">@lang('messages.paid'): {{ number_format($rawMaterialPurchases['paid_count'],0,',',' ') }} ({{ number_format($rawMaterialPurchases['paid_sum'],0,',',' ') }})</p>
                                 <p class="muted mb-2">@lang('messages.unpaid'): {{ number_format($rawMaterialPurchases['unpaid_count'],0,',',' ') }} ({{ number_format($rawMaterialPurchases['unpaid_sum'],0,',',' ') }})</p>
                                 <hr>
-                                <p class="muted font-weight-bold" style="color:var(--plant-teal);">@lang('messages.materials')</p>
+                                <p class="muted font-weight-bold" style="color:var(--plant-amber);">@lang('messages.materials')</p>
                                 <p class="muted">@lang('messages.paid'): {{ number_format($materialPurchases['paid_count'],0,',',' ') }} ({{ number_format($materialPurchases['paid_sum'],0,',',' ') }})</p>
                                 <p class="muted" style="margin-bottom:0;">@lang('messages.unpaid'): {{ number_format($materialPurchases['unpaid_count'],0,',',' ') }} ({{ number_format($materialPurchases['unpaid_sum'],0,',',' ') }})</p>
                             </div>

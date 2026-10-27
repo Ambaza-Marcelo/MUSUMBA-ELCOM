@@ -42,6 +42,7 @@ class AutocompleteController extends Controller
             'id',
             'customer_name',
             'telephone',
+            'customer_TIN',
         ]);
 
         $results = $clients->map(function ($c) {
@@ -51,6 +52,7 @@ class AutocompleteController extends Controller
                 'text' => $text,
                 'name' => $c->customer_name,
                 'telephone' => $c->telephone,
+                'tin' => $c->customer_TIN,
             ];
         })->values();
 

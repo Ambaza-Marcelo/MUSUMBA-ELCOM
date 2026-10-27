@@ -50,7 +50,12 @@
                                 </span>
                             @endif
                         </div>
-                        <div>
+                        <div class="d-flex align-items-center">
+                            @if (Auth::guard('admin')->user()->can('raw_material_supplier_order.create'))
+                            <a href="{{ route('admin.raw-material-supplier-orders.rawMaterialSupplierOrder', $order->order_no) }}" class="mr-2">
+                                <img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.download_then_print')">
+                            </a>
+                            @endif
                             <a href="{{ route('admin.raw-material-supplier-orders.index') }}" class="btn btn-secondary">
                                 <i class="fa fa-arrow-left"></i> Retour à la liste
                             </a>

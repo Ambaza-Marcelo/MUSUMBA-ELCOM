@@ -79,7 +79,7 @@
                         <div class="col-sm-6" id="dynamicDiv">
                             <div class="form-group">
                                 <label for="date">@lang('messages.date')</label>
-                                <input type="date" class="form-control" id="date" name="date">
+                                <input type="date" class="form-control" id="date" name="date" value="{{ old('date', date('Y-m-d')) }}" required>
                             </div>
                         </div>
                     </div>
@@ -94,22 +94,20 @@
                                 <td>
                                     <div class="autocomplete-wrapper">
                                         <input type="text" class="form-control food_search" placeholder="@lang('messages.type_to_search_item')" autocomplete="off" required>
-                                        <input type="hidden" name="r_material_id[]" class="r_material_id">
+                                        <input type="hidden" name="r_material_id[]" class="r_material_id" required>
                                         <div class="autocomplete-list food_search-list"></div>
                                     </div>
                                 </td>  
-                                <td><input type="number" name="quantity_requisitioned[]" placeholder="@lang('messages.enter_quantity')" class="form-control" min="0" step="any" /></td>
+                                <td><input type="number" name="quantity_requisitioned[]" placeholder="@lang('messages.enter_quantity')" class="form-control" min="0" step="any" required /></td>
                                 <td><button type="button" name="add" id="add" class="btn btn-success">@lang('messages.addmore')</button></td>     
                             </tr>
                         </table> 
                         <div class="col-lg-12">
                             <label for="description">@lang('messages.description')</label>
-                            <textarea class="form-control" name="description" id="description" placeholder="@lang('messages.enter_description')">
-                                DEMANDE DE REQUISITION DES ARTICLES
-                            </textarea>
+                            <textarea class="form-control" name="description" id="description" placeholder="@lang('messages.enter_description')" required>DEMANDE DE REQUISITION DES ARTICLES</textarea>
                         </div>
                         <div style="margin-top: 15px;margin-left: 15px;">
-                            <button type="submit" onclick="this.style.visibility='hidden';" ondblclick="this.style.visibility='hidden';" class="btn btn-primary" id="save">@lang('messages.save')</button>
+                            <button type="submit" class="btn btn-primary" id="save">@lang('messages.save')</button>
                         </div>
                     </form>
                 </div>
@@ -126,7 +124,7 @@
         @foreach($raw_materials as $raw_material)
         {
             id: {{ $raw_material->id }},
-            name: {!! json_encode($raw_material->name . '/' . $raw_material->rawMaterialMeasurement->purchase_unit) !!}
+            name: {!! json_encode($raw_material->name . '/' . (optional($raw_material->rawMaterialMeasurement)->purchase_unit ?? 'N/A')) !!}
         }@if(!$loop->last),@endif
         @endforeach
     ];
@@ -227,12 +225,12 @@
                       "<td>"+
                          "<div class='autocomplete-wrapper'>"+
                             "<input type='text' class='form-control food_search' placeholder='Tapez pour rechercher un article...' autocomplete='off' required>"+
-                            "<input type='hidden' name='r_material_id[]' class='r_material_id'>"+
+                            "<input type='hidden' name='r_material_id[]' class='r_material_id' required>"+
                             "<div class='autocomplete-list food_search-list'></div>"+
                          "</div>"+
                         "</td>"+
                         "<td>"+
-                          "<input type='number' name='quantity_requisitioned[]' placeholder='Enter Quantity' class='form-control' min='0' step='any'/>"+
+                          "<input type='number' name='quantity_requisitioned[]' placeholder='Enter Quantity' class='form-control' min='0' step='any' required/>"+
                         "</td>"+
                         "<td>"+
                           "<button type='button' class='btn btn-danger remove-tr'>@lang('messages.delete')</button>"+
@@ -250,14 +248,21 @@
          $(this).parents('tr').remove();
     }); 
 
-
-    function preventBack() {
-        window.history.forward();
-    }
-    setTimeout("preventBack()", 0);
-    window.onunload = function () {
-        null
-    };
+    $('#dynamic_form').on('submit', function(e) {
+        var missing = false;
+        $('.r_material_id').each(function() {
+            if (!$(this).val()) {
+                missing = true;
+            }
+        });
+        if (missing) {
+            e.preventDefault();
+            alert('Veuillez sélectionner chaque matière première dans la liste déroulante.');
+            $('#save').prop('disabled', false).css('visibility', 'visible');
+            return false;
+        }
+        $('#save').prop('disabled', true);
+    });
 
 </script>
 @endsection

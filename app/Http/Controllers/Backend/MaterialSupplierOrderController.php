@@ -620,13 +620,14 @@ class MaterialSupplierOrderController extends Controller
         }
 
         $setting = DB::table('settings')->orderBy('created_at','desc')->first();
-        $stat = MaterialSupplierOrder::where('order_no', $order_no)->value('status');
-        $description = MaterialSupplierOrder::where('order_no', $order_no)->value('description');
-        $date = MaterialSupplierOrder::where('order_no', $order_no)->value('date');
-        $data = MaterialSupplierOrder::where('order_no', $order_no)->first();
-        if($stat == 2 || $stat == 3 || $stat == 4 || $stat == 5 || $stat == -3){
-           $order_no = MaterialSupplierOrder::where('order_no', $order_no)->value('order_no');
-           $order_signature = MaterialSupplierOrder::where('order_no', $order_no)->value('order_signature');
+        $data = MaterialSupplierOrder::with('supplier')->where('order_no', $order_no)->first();
+        if (!$data) {
+            session()->flash('error', 'Bon de commande introuvable.');
+            return back();
+        }
+        $description = $data->description;
+        $date = $data->date;
+        $order_signature = $data->order_signature;
            $totalValue = DB::table('material_supplier_order_details')
             ->where('order_no', '=', $order_no)
             ->sum('total_value');
@@ -638,7 +639,6 @@ class MaterialSupplierOrderController extends Controller
             ->sum('vat');
 
            $datas = MaterialSupplierOrderDetail::with(['material.materialMeasurement', 'item', 'supplier'])->where('order_no', $order_no)->get();
-           $data = MaterialSupplierOrder::with('supplier')->where('order_no', $order_no)->first();
            $amountInWords = \App\Helpers\NumberToWordsFrench::convert((int) round($totalValue)) . ' francs burundais';
            $pdf = PDF::setOptions(['defaultFont' => 'dejavu sans', 'isRemoteEnabled' => true])
             ->loadView('backend.pages.document.material_supplier_order', compact('datas','order_no','setting','description','date','order_signature','totalValue','data','price_nvat','vat','amountInWords'), [], 'UTF-8');
@@ -646,16 +646,7 @@ class MaterialSupplierOrderController extends Controller
            Storage::put('public/pdf/material_supplier_order/'.'BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf', $pdf->output());
 
            // download pdf file
-           return $pdf->download('BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf'); 
-           
-        }else if ($stat == -1) {
-            session()->flash('error', 'Order has been rejected !!');
-            return back();
-        }else{
-            session()->flash('error', 'wait until Order will be validated !!');
-            return back();
-        }
-        
+           return $pdf->download('BON DE COMMANDE FOURNISSEUR '.$order_no.'.pdf');
     }
 
     public function print($order_no) { return $this->materialSupplierOrder($order_no); }
@@ -689,30 +680,8 @@ class MaterialSupplierOrderController extends Controller
      */
     public function destroy($order_no)
     {
-        if (is_null($this->user) || !$this->user->can('material_supplier_order.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any order !');
-        }
-        /*
-        try {DB::beginTransaction();
-
-        $order = MaterialSupplierOrder::where('order_no',$order_no)->first();
-        if (!is_null($order)) {
-            $order->delete();
-            MaterialSupplierOrderDetail::where('order_no',$order_no)->delete();
-        }
-
-        DB::commit();
-            session()->flash('success', 'Transfer has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
+        // Suppression des documents d'achat / facturation désactivée (anti-perte de données).
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.material-supplier-orders.index');
     }
 }

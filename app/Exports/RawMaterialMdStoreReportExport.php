@@ -3,9 +3,10 @@
 namespace App\Exports;
 
 use App\Models\RawMaterialBigReport;
+use App\Support\ChronologicalProgression;
+use App\Support\ProgressiveStockReportBuilder;
 use App\Support\StockReportContext;
 use App\Support\StockReportFilter;
-use App\Support\StockReportInventoryNormalizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -26,15 +27,20 @@ class RawMaterialMdStoreReportExport implements FromCollection, WithMapping, Wit
             return collect();
         }
 
+        $config = $this->filterConfig();
+
         $query = RawMaterialBigReport::with('rawMaterial')->select(
             DB::raw('id,created_at,date,created_by,r_material_id,code_store,document_no,type_transaction,quantity_stock_initial,cump,value_stock_initial,quantity_stockin,value_stockin,quantity_reception,value_reception,quantity_transfer,value_transfer,transfer_no,quantity_stockout,value_stockout,quantity_stock_final,value_stock_final,description')
         );
 
-        StockReportFilter::apply($query, $request, $this->filterConfig());
+        StockReportFilter::apply($query, $request, $config);
+        ChronologicalProgression::applyInsertionQueryOrder($query, 'desc');
 
-        return StockReportInventoryNormalizer::normalizeCollection(
-            $query->orderBy('id', 'desc')->get()
-        );
+        return ProgressiveStockReportBuilder::apply($query->get(), [
+            'entity_column' => $config['item_column'] ?? null,
+            'store_column' => $config['store_column'] ?? 'code_store',
+            'display_direction' => 'desc',
+        ]);
     }
 
     public function map($data): array

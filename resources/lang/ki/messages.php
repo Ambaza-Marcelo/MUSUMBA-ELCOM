@@ -404,6 +404,7 @@ return[
 	'Stock Intermediaire des matières premières' => 'Ububiko bukiri hagati',
 	'Petit Stock des matières premières' => 'Ububiko bukeya',
 	'Stock des produits finis' => 'Ububiko bw\'ibyaranzwe',
+	'Petit Stock des produits finis' => 'Ububiko buto bw\'ibyarangiye',
 	'Grand Stock des Materiels' => 'Ububiko bukuru bw\'ibikoresho',
 	'Stock Intermediaire des Materiels' => 'Ububiko bukiri hagati',
 	'Petit Stock des Materiels' => 'Ububiko bukeya',
@@ -544,6 +545,11 @@ return[
 	'accounts_balance_credit' => 'Kirediti',
 	'accounts_balance_carry_forward' => 'Kwishyira ku kigero kizokurikira',
 	'accounts_balance_undefined_account' => 'Konti ntizanditswe',
+	'accounts_balance_period_help' => 'Kuringaniza konti bikorwa hakurikijwe imyandikire (AccountJournalEntryDetail) hagati y\'itariki zatowe: debiti yose, kirediti yose, hanyuma umusanzu = debiti − kirediti.',
+	'accounts_balance_consolidated' => 'byunganijwe',
+	'accounts_balance_parent_mode_help' => 'Konti zose = ibisobanuro by\'abana. Konti nyina = umurongo umwe w\'ibyunganijwe ku nyina (nko 40) ntabwo ureba abana. Konti y\'umwana = ibisobanuro by\'izo zatowe.',
+	'accounts_balance_show' => 'Erekana kuringaniza',
+	'accounts_balance_configure' => 'Tegura kuringaniza',
 	'export_pdf' => 'Kohereza PDF',
 
 	// Horaires / planning
@@ -780,7 +786,7 @@ return[
 	'created_at_label' => 'Yashizweho',
 	'updated_at_label' => 'Guhinduka kwanyuma',
 	'database_backup_title' => 'Gukoporora database',
-	'database_backup_intro' => 'Kanda buto hepfo kugira ukurure kopi yose ya MySQL. Kopi irimwo amatabaro n\'amakuru yose.',
+	'database_backup_intro' => 'Kanda buto hepfo kugira ukurure kopi yose y\'amakuru. Kopi irimwo amatabaro n\'amakuru yose.',
 	'note_label' => 'Igisobanuro',
 	'database_backup_note' => 'Kopi izoba muri SQL kandi izokururwa ku buryo bw\'aka kanya.',
 	'download_database_backup' => 'Kurura kopi ya database',

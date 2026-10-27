@@ -24,7 +24,7 @@
                 <h4 class="page-title pull-left">@lang('messages.Thank You To Choose')</h4>
                 <ul class="breadcrumbs pull-left">
                     <li><a href="{{ route('admin.dashboard') }}">@lang('messages.dashboard')</a></li>
-                    <li><a href="{{ route('admin.material-requisitions.index') }}">@lang('messages.list')</a></li>
+                    <li><a href="{{ route('admin.raw-material-requisitions.index') }}">@lang('messages.list')</a></li>
                     <li><span>@lang('messages.Thank You To Choose')</span></li>
                 </ul>
             </div>

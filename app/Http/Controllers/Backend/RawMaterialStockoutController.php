@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Backend\Concerns\GuardsStockApproval;
+use App\Http\Controllers\Backend\Concerns\PostsSauStockoutAccounting;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +39,7 @@ use Mail;
 class RawMaterialStockoutController extends Controller
 {
     use GuardsStockApproval;
+    use PostsSauStockoutAccounting;
 
     //
     public $user;
@@ -139,7 +141,7 @@ class RawMaterialStockoutController extends Controller
                 'quantity.*'  => 'required',
                 'asker'  => 'required',
                 'destination'  => 'required',
-                'item_movement_type' => 'required',
+                'item_movement_type' => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
                 'description'  => 'required|max:490'
             );
 
@@ -164,7 +166,7 @@ class RawMaterialStockoutController extends Controller
             //$unit = $request->unit;
             $quantity = $request->quantity;
             $store_type = $request->store_type;
-            $item_movement_type = $request->item_movement_type;
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             
 
             $latest = RawMaterialStockout::orderBy('id','desc')->first();
@@ -409,7 +411,7 @@ class RawMaterialStockoutController extends Controller
             'quantity.*'  => 'required',
             'asker'  => 'required',
             'destination'  => 'required',
-            'item_movement_type' => 'required',
+            'item_movement_type' => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
             'description'  => 'required|max:490'
         );
 
@@ -434,7 +436,7 @@ class RawMaterialStockoutController extends Controller
             $origin_extra_store_id = $request->origin_extra_store_id;
             $quantity = $request->quantity;
             $store_type = $request->store_type;
-            $item_movement_type = $request->item_movement_type ?? $stockout->item_movement_type ?? 'SN';
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
 
             if (!empty($origin_sm_store_id)) {
                 $origin_sm_store_id = $origin_sm_store_id;
@@ -698,12 +700,30 @@ class RawMaterialStockoutController extends Controller
         }
 
         $datas = RawMaterialStockoutDetail::where('stockout_no', $stockout_no)->with('rawMaterial.rawMaterialMeasurement')->get();
-        $accountSetting = AccountSetting::where('active', 1)->first();
-        $hasCounterAccount = $accountSetting && ($accountSetting->f_saj_account_id || $accountSetting->f_sp_account_id || $accountSetting->f_sv_account_id || $accountSetting->f_sc_account_id);
-        if (!$hasCounterAccount) {
+
+        $movementType = $this->resolveStockoutMovementType($stockoutHeader->item_movement_type ?? optional($datas->first())->item_movement_type);
+        if ($this->isExcludedStockoutMovement($movementType)) {
             DB::rollback();
-            session()->flash('error', __('messages.approval_accounts_required'));
+            session()->flash('error', $this->excludedStockoutMovementMessage($movementType));
             return back();
+        }
+        $isSau = $this->isSauMovement($movementType);
+        $sauLines = [];
+
+        if ($isSau) {
+            if ($sauError = $this->sauMissingAccountMessage($datas->pluck('rawMaterial'))) {
+                DB::rollback();
+                session()->flash('error', $sauError);
+                return back();
+            }
+        } else {
+            $accountSetting = AccountSetting::where('active', 1)->first();
+            $hasCounterAccount = $accountSetting && ($accountSetting->f_saj_account_id || $accountSetting->f_sp_account_id || $accountSetting->f_sv_account_id || $accountSetting->f_sc_account_id);
+            if (!$hasCounterAccount) {
+                DB::rollback();
+                session()->flash('error', __('messages.approval_accounts_required'));
+                return back();
+            }
         }
         foreach ($datas as $d) {
             $storeAccountId = null;
@@ -906,8 +926,10 @@ class RawMaterialStockoutController extends Controller
                     $flag = 0;
 
             }
-                
-  
+
+            if ($isSau) {
+                $sauLines[] = ['article' => $data->rawMaterial, 'amount' => $value_stockout];
+            }
         }
 
         $cmp = DB::table('raw_material_stockout_details')
@@ -917,7 +939,9 @@ class RawMaterialStockoutController extends Controller
         if($stockout->store_type == 1 && $flag != 1){
             RawMaterialBigReport::insert($reportBigStoreData);
 
-            if ($data->item_movement_type == "SP") {
+            if ($isSau) {
+                $this->postSauStockoutEntries((int) RawMaterialBigStore::where('id', $data->origin_bg_store_id)->value('default_account_id'), $sauLines, $data->date, $stockout_no, $data->description);
+            }elseif ($data->item_movement_type == "SP") {
                 //start credit operations
                 $id_acc_stock = RawMaterialBigStore::where('id',$data->origin_bg_store_id)->value('default_account_id');
 
@@ -1088,7 +1112,9 @@ class RawMaterialStockoutController extends Controller
         }elseif ($stockout->store_type == 2 && $flag != 1) {
             RawMaterialSmallReport::insert($reportSmallStoreData);
 
-            if ($data->item_movement_type == "SP") {
+            if ($isSau) {
+                $this->postSauStockoutEntries((int) RawMaterialSmallStore::where('id', $data->origin_sm_store_id)->value('default_account_id'), $sauLines, $data->date, $stockout_no, $data->description);
+            }elseif ($data->item_movement_type == "SP") {
                 //start credit operations
                 $id_acc_stock = RawMaterialSmallStore::where('id',$data->origin_sm_store_id)->value('default_account_id');
 
@@ -1259,9 +1285,9 @@ class RawMaterialStockoutController extends Controller
         }else{
             RawMaterialExtraBigReport::insert($reportExtraBigStoreData);
 
-            DrinkExtraBigReport::insert($reportExtraStoreData);
-
-            if ($data->item_movement_type == "SP") {
+            if ($isSau) {
+                $this->postSauStockoutEntries((int) RawMaterialExtraBigStore::where('id', $data->origin_extra_store_id)->value('default_account_id'), $sauLines, $data->date, $stockout_no, $data->description);
+            }elseif ($data->item_movement_type == "SP") {
                 //start credit operations
                 $id_acc_stock = RawMaterialExtraBigStore::where('id',$data->origin_extra_store_id)->value('default_account_id');
 

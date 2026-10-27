@@ -84,7 +84,12 @@
             <div class="card">
                 <div class="card-body">
                     @include('backend.layouts.partials.messages')
-                    <div class="mb-3">
+                    <div class="mb-3 d-flex align-items-center">
+                        @if (Auth::guard('admin')->user()->can('material_purchase.create'))
+                        <a href="{{ route('admin.material-purchases.materialPurchase', $purchase->purchase_no) }}" class="mr-3">
+                            <img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.requisition_pdf_title')">
+                        </a>
+                        @endif
                         @include('backend.layouts.partials.update_supplier_modal', [
                             'updateSupplierRoute' => route('admin.material-purchases.update-supplier', $purchase->purchase_no),
                             'currentSupplierId' => $purchase->supplier_id ?? '',

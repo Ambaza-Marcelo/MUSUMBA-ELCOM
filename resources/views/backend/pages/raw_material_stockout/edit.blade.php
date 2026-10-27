@@ -124,7 +124,6 @@
                                     <label for="item_movement_type">@lang('messages.Type de Sortie')</label>
                                     <select class="form-control" name="item_movement_type" id="item_movement_type" required>
                                     <option disabled="disabled">@lang('messages.Merci de choisir')</option>
-                                        <option value="SN" {{ $stockout->item_movement_type == 'SN' ? 'selected' : '' }}>Sortie Normale</option>
                                         @if (Auth::guard('admin')->user()->can('raw_material_stockout.edit'))
                                         <option value="SP" {{ $stockout->item_movement_type == 'SP' ? 'selected' : '' }}>Sortie Perte</option>
                                         <option value="SV" {{ $stockout->item_movement_type == 'SV' ? 'selected' : '' }}>Sortie Vol</option>
@@ -132,8 +131,7 @@
                                         <option value="SC" {{ $stockout->item_movement_type == 'SC' ? 'selected' : '' }}>Sortie Casse</option>
                                         <option value="SAJ" {{ $stockout->item_movement_type == 'SAJ' ? 'selected' : '' }}>Sortie Ajustement</option>
                                         @endif
-                                        <option value="ST" {{ $stockout->item_movement_type == 'ST' ? 'selected' : '' }}>Sortie Transfert</option>
-                                        <option value="SAU" {{ $stockout->item_movement_type == 'SAU' ? 'selected' : '' }}>Sortie Autre</option>
+                                        <option value="SAU" {{ in_array($stockout->item_movement_type, ['SAU', 'SN', 'ST', '', null], true) ? 'selected' : '' }}>Sortie Autre</option>
                                 </select>
                                 </div>
                             </div>

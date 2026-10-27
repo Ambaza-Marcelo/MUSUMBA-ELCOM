@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers\Backend\Concerns;
 
+use App\Support\ChronologicalProgression;
+use App\Support\ProgressiveStockReportBuilder;
 use App\Support\StockReportFilter;
-use App\Support\StockReportInventoryNormalizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -36,14 +37,36 @@ trait HandlesStockReports
         ];
     }
 
+    /**
+     * Tri d'insertion (created_at → id).
+     *
+     * @deprecated Prefer orderStockReportChronologically()
+     */
     protected function orderStockReportById(Builder $query, string $direction = 'desc'): Builder
     {
-        return $query->orderBy('id', $direction);
+        return $this->orderStockReportChronologically($query, $direction);
     }
 
-    protected function normalizeStockReportRows($rows)
+    protected function orderStockReportChronologically(Builder $query, string $direction = 'desc'): Builder
     {
-        return StockReportInventoryNormalizer::normalizeCollection($rows);
+        return ChronologicalProgression::applyInsertionQueryOrder($query, $direction);
+    }
+
+    /**
+     * Recalcule le stock progressif selon l'ordre d'insertion, puis ordonne pour l'affichage.
+     *
+     * @param  \Illuminate\Support\Collection|iterable  $rows
+     * @return \Illuminate\Support\Collection
+     */
+    protected function normalizeStockReportRows($rows, string $displayDirection = 'desc')
+    {
+        $config = $this->stockReportFilterConfig();
+
+        return ProgressiveStockReportBuilder::apply($rows, [
+            'entity_column' => $config['item_column'] ?? null,
+            'store_column' => $config['store_column'] ?? 'code_store',
+            'display_direction' => $displayDirection,
+        ]);
     }
 
     protected function validateStockReportDates(Request $request, string $redirectRoute)

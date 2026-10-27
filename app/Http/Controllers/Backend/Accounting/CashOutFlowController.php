@@ -35,10 +35,14 @@ use Validator;
 use PDF;
 use Mail;
 use Carbon\Carbon;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 
 class CashOutFlowController extends Controller
 {
-    //
+    use GuardsAccountingPeriod;
+
+    const UNCHECKED_BALANCE_ACCOUNT = '562200';
+
     public $user;
 
     public function __construct()
@@ -222,14 +226,18 @@ class CashOutFlowController extends Controller
             $cost_center_id = $request->cost_center_id;
             $employe_id = $request->employe_id;
             $currency_id = $request->currency_id;
-            $expense_id = $request->expense_id;
-            $quantity = $request->quantity;
-
-            if (!empty($vat_rate)) {
-                $vat_rate = $vat_rate;
-            }else{
-                $vat_rate = 0;
+            $requestLines = CashOutFlowRequestDetail::where('cash_outflow_request_no', $cash_outflow_request_no)
+                ->whereNotNull('expense_id')
+                ->orderBy('id')
+                ->get();
+            if ($requestLines->isEmpty()) {
+                DB::rollback();
+                session()->flash('error', 'Aucune dépense trouvée sur la demande de sortie de fonds ' . $cash_outflow_request_no . '.');
+                return back()->withInput();
             }
+
+            $vat_supplier_payer = $requestLines->first()->vat_supplier_payer;
+            $vat_rate = (float) ($requestLines->first()->vat_rate ?? 0);
 
             $latest = CashOutFlow::orderBy('id','desc')->first();
             if ($latest) {
@@ -260,37 +268,26 @@ class CashOutFlowController extends Controller
             $cash_out_flow->created_at = \Carbon\Carbon::now();
             $cash_out_flow->save();
             //insert details of cash_out_flow No.
-            for( $count = 0; $count < count($expense_id); $count++ ){
-                $cost_price = AccountExpense::where('id', $expense_id[$count])->value('cost_price');
-                if($vat_supplier_payer == 1){
-                    $cost_nvat = ($cost_price*$quantity[$count]);
-                    $vat = ($cost_nvat* $vat_rate)/100;
-                    $cost_wvat = $cost_nvat + $vat;
-
-                }else{
-                    $cost_nvat = ($cost_price*$quantity[$count]);
-                    $vat = 0;
-                    $cost_wvat = $cost_nvat + $vat;
-                }
-
+            $insert_data = [];
+            foreach ($requestLines as $line) {
                 $data = array(
-                    'expense_id' => $expense_id[$count],
+                    'expense_id' => $line->expense_id,
                     'date' => $date,
-                    'quantity' => $quantity[$count],
+                    'quantity' => $line->quantity,
                     'asker' => $asker,
                     'cash_outflow_request_no' => $cash_outflow_request_no,
                     'status' => $status,
-                    'vat_supplier_payer' => $vat_supplier_payer,
-                    'vat_rate' => $vat_rate,
+                    'vat_supplier_payer' => $line->vat_supplier_payer,
+                    'vat_rate' => $line->vat_rate ?? 0,
                     'account_id' => $account_id,
-                    'cost_price' => $cost_price,
+                    'cost_price' => $line->cost_price,
                     'description' => $description,
                     'cost_center_id' => $cost_center_id,
                     'employe_id' => $employe_id,
                     'currency_id' => $currency_id,
-                    'cost_nvat' => $cost_nvat,
-                    'vat' => $vat,
-                    'cost_wvat' => $cost_wvat,
+                    'cost_nvat' => $line->cost_nvat,
+                    'vat' => $line->vat,
+                    'cost_wvat' => $line->cost_wvat,
                     'created_by' => $created_by,
                     'cash_outflow_no' => $cash_outflow_no,
                     'cash_outflow_signature' => $cash_outflow_signature,
@@ -300,6 +297,13 @@ class CashOutFlowController extends Controller
             }
 
             CashOutFlowDetail::insert($insert_data);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
@@ -443,6 +447,13 @@ class CashOutFlowController extends Controller
             }
 
             CashOutFlowDetail::insert($insert_data);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
@@ -593,6 +604,13 @@ class CashOutFlowController extends Controller
             }
 
             CashOutFlowDetail::insert($insert_data);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
@@ -750,6 +768,13 @@ class CashOutFlowController extends Controller
             }
 
             CashOutFlowDetail::insert($insert_data);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
@@ -914,6 +939,13 @@ class CashOutFlowController extends Controller
 
             CashOutFlowDetail::insert($insert_data);
 
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
+
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
             CashOutFlowRequestDetail::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
@@ -1037,6 +1069,13 @@ class CashOutFlowController extends Controller
             );
 
             CashOutFlowDetail::insert([$data]);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) $amount_loan);
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             // Update flag1 to indicate funds have been released
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
@@ -1163,14 +1202,18 @@ class CashOutFlowController extends Controller
             $cost_center_id = $request->cost_center_id;
             $employe_id = $request->employe_id;
             $currency_id = $request->currency_id;
-            $expense_id = $request->expense_id;
-            $quantity = $request->quantity;
-
-            if (!empty($vat_rate)) {
-                $vat_rate = $vat_rate;
-            }else{
-                $vat_rate = 0;
+            $requestLines = CashOutFlowRequestDetail::where('cash_outflow_request_no', $cash_outflow_request_no)
+                ->whereNotNull('expense_id')
+                ->orderBy('id')
+                ->get();
+            if ($requestLines->isEmpty()) {
+                DB::rollback();
+                session()->flash('error', 'Aucune dépense trouvée sur la demande de sortie de fonds ' . $cash_outflow_request_no . '.');
+                return back()->withInput();
             }
+
+            $vat_supplier_payer = $requestLines->first()->vat_supplier_payer;
+            $vat_rate = (float) ($requestLines->first()->vat_rate ?? 0);
 
             $created_by = $this->user->name;
 
@@ -1190,37 +1233,26 @@ class CashOutFlowController extends Controller
             $cash_out_flow->created_by = $created_by;
             $cash_out_flow->save();
             //insert details of cash_out_flow No.
-            for( $count = 0; $count < count($expense_id); $count++ ){
-                $cost_price = AccountExpense::where('id', $expense_id[$count])->value('cost_price');
-                if($vat_supplier_payer == 1){
-                    $cost_nvat = ($cost_price*$quantity[$count]);
-                    $vat = ($cost_nvat* $vat_rate)/100;
-                    $cost_wvat = $cost_nvat + $vat;
-
-                }else{
-                    $cost_nvat = ($cost_price*$quantity[$count]);
-                    $vat = 0;
-                    $cost_wvat = $cost_nvat + $vat;
-                }
-
+            $insert_data = [];
+            foreach ($requestLines as $line) {
                 $data = array(
-                    'expense_id' => $expense_id[$count],
+                    'expense_id' => $line->expense_id,
                     'date' => $date,
-                    'quantity' => $quantity[$count],
+                    'quantity' => $line->quantity,
                     'asker' => $asker,
                     'cash_outflow_request_no' => $cash_outflow_request_no,
                     'status' => $status,
-                    'vat_supplier_payer' => $vat_supplier_payer,
-                    'vat_rate' => $vat_rate,
+                    'vat_supplier_payer' => $line->vat_supplier_payer,
+                    'vat_rate' => $line->vat_rate ?? 0,
                     'account_id' => $account_id,
-                    'cost_price' => $cost_price,
+                    'cost_price' => $line->cost_price,
                     'description' => $description,
                     'cost_center_id' => $cost_center_id,
                     'employe_id' => $employe_id,
                     'currency_id' => $currency_id,
-                    'cost_nvat' => $cost_nvat,
-                    'vat' => $vat,
-                    'cost_wvat' => $cost_wvat,
+                    'cost_nvat' => $line->cost_nvat,
+                    'vat' => $line->vat,
+                    'cost_wvat' => $line->cost_wvat,
                     'created_by' => $created_by,
                     'cash_outflow_no' => $cash_outflow_no,
                     'cash_outflow_signature' => $cash_outflow_signature,
@@ -1232,6 +1264,13 @@ class CashOutFlowController extends Controller
             CashOutFlowDetail::where('cash_outflow_no',$cash_outflow_no)->delete();
 
             CashOutFlowDetail::insert($insert_data);
+
+            $balanceError = $this->insufficientBalanceMessage($account_id, (float) CashOutFlowDetail::where('cash_outflow_no', $cash_outflow_no)->sum('cost_wvat'));
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
+                return back()->withInput();
+            }
 
             CashOutFlowRequest::where('cash_outflow_request_no', '=', $cash_outflow_request_no)
                 ->update(['flag1' => 1]);
@@ -1405,6 +1444,10 @@ class CashOutFlowController extends Controller
                 return redirect()->back();
             }
 
+            if ($this->abortIfAccountingPeriodLocked($data->date)) {
+                return redirect()->back();
+            }
+
             $cash_outflow_request_no = $data->cash_outflow_request_no;
             
             // Initialize arrays
@@ -1425,9 +1468,10 @@ class CashOutFlowController extends Controller
                 return redirect()->back();
             }
 
-            $balance_acc_c_credit = AccountLedger::where('account_id', $data->account_id)->value('balance') ?? 0;
-            if ($balance_acc_c_credit < $cost_wvat) {
-                session()->flash('error', 'Verify your balance please in '.$data->account->account_name.' !!');
+            $balanceError = $this->insufficientBalanceMessage($data->account_id, $cost_wvat);
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
                 return back();
             }
 
@@ -1475,9 +1519,10 @@ class CashOutFlowController extends Controller
                 return redirect()->back();
             }
 
-            $balance_acc_c_credit = AccountLedger::where('account_id', $data->account_id)->value('balance') ?? 0;
-            if ($balance_acc_c_credit < $cost_wvat) {
-                session()->flash('error', 'Verify your balance please in '.$data->account->account_name.' !!');
+            $balanceError = $this->insufficientBalanceMessage($data->account_id, $cost_wvat);
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
                 return back();
             }
 
@@ -1498,7 +1543,7 @@ class CashOutFlowController extends Controller
 
             if (empty($data->employe) || empty($data->employe->cash_out_account_id)) {
                 DB::rollback();
-                session()->flash('error', 'Cash Out Account ID not found for the employee. Please configure cash_out_account_id for the employee.');
+                session()->flash('error', 'Le compte de sortie de fonds de l\'employé n\'est pas renseigné sur sa fiche.');
                 return redirect()->back();
             }
 
@@ -1525,9 +1570,10 @@ class CashOutFlowController extends Controller
                 return redirect()->back();
             }
 
-            $balance_acc_c_credit = AccountLedger::where('account_id', $data->account_id)->value('balance') ?? 0;
-            if ($balance_acc_c_credit < $cost_wvat) {
-                session()->flash('error', 'Verify your balance please in '.$data->account->account_name.' !!');
+            $balanceError = $this->insufficientBalanceMessage($data->account_id, $cost_wvat);
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
                 return back();
             }
 
@@ -1595,9 +1641,10 @@ class CashOutFlowController extends Controller
                 return redirect()->back();
             }
 
-            $balance_acc_c_credit = AccountLedger::where('account_id',$data->account_id)->value('balance') ?? 0;
-            if ($balance_acc_c_credit < $cost_wvat) {
-                session()->flash('error', 'Verify your balance please in '.$data->account->account_name.' !!');
+            $balanceError = $this->insufficientBalanceMessage($data->account_id, $cost_wvat);
+            if ($balanceError) {
+                DB::rollback();
+                session()->flash('error', $balanceError);
                 return back();
             }
 
@@ -1627,7 +1674,7 @@ class CashOutFlowController extends Controller
                 foreach ($expenseDetails as $detail) {
                     if (empty($detail->expense) || empty($detail->expense->default_account_id)) {
                         DB::rollback();
-                        session()->flash('error', 'Default Account ID not found for the expense. Please configure default_account_id for the expense.');
+                        session()->flash('error', 'Le compte de charge n\'est pas renseigné sur le type de dépense.');
                         return redirect()->back();
                     }
 
@@ -1739,32 +1786,39 @@ class CashOutFlowController extends Controller
      */
     public function destroy($cash_outflow_no)
     {
-        if (is_null($this->user) || !$this->user->can('account_cash_ouflow.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any cash out flow !');
+        session()->flash('error', 'La suppression des documents d\'achat et de facturation est désactivée.');
+        return redirect()->route('admin.cash-out-flow.index');
+    }
+
+    /**
+     * Le compte 562200 peut passer en solde négatif : pas de contrôle de balance.
+     */
+    private function allowsNegativeBalance($account): bool
+    {
+        return $account && (string) $account->account_number === self::UNCHECKED_BALANCE_ACCOUNT;
+    }
+
+    /**
+     * Refuse toute sortie supérieure au solde débiteur du compte (sauf compte 562200).
+     * Doit être appelée dans une transaction : la ligne du grand livre est verrouillée.
+     */
+    private function insufficientBalanceMessage($accountId, float $amount): ?string
+    {
+        $account = AccountAccount::find($accountId);
+        if ($this->allowsNegativeBalance($account) || $amount <= 0) {
+            return null;
         }
-        /*
-        try {DB::beginTransaction();
 
-        $cash_out_flow = CashOutFlow::where('cash_outflow_no',$cash_outflow_no)->first();
-        if (!is_null($cash_out_flow)) {
-            $cash_out_flow->delete();
-            CashOutFlowDetail::where('cash_outflow_no',$cash_outflow_no)->delete();
+        $ledger = AccountLedger::where('account_id', $accountId)->lockForUpdate()->first();
+        $available = $ledger ? (float) ($ledger->debit ?? 0) - (float) ($ledger->credit ?? 0) : 0.0;
+
+        if (round($available, 2) >= round($amount, 2)) {
+            return null;
         }
 
-        DB::commit();
-            session()->flash('success', 'cash out flow has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
-        */
-
+        return 'Solde insuffisant sur le compte ' . ($account->account_name ?? '')
+            . ' : disponible ' . number_format($available, 2, ',', ' ')
+            . ', sortie demandée ' . number_format($amount, 2, ',', ' ') . '.';
     }
 
     /**

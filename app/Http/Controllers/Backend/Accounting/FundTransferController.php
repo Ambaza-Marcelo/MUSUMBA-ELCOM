@@ -15,12 +15,16 @@ use App\Models\Accounting\FundTransfer;
 use App\Models\Accounting\AccountAccount;
 use App\Models\Accounting\AccountLedger;
 use App\Models\Accounting\AccountJournalEntryDetail;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
 use Carbon\Carbon;
 use PDF;
 
 class FundTransferController extends Controller
 {
-    //
+    use GuardsAccountingPeriod;
+
+    const UNCHECKED_BALANCE_ACCOUNT = '562200';
+
     public $user;
 
     public function __construct()
@@ -82,6 +86,12 @@ class FundTransferController extends Controller
             'origin_account_id' => 'required|exists:account_accounts,id',
             'destination_account_id' => 'required|exists:account_accounts,id|different:origin_account_id',
         ]);
+
+        $balanceError = $this->insufficientOriginBalanceMessage((int) $request->origin_account_id, (float) $request->amount);
+        if ($balanceError) {
+            session()->flash('error', $balanceError);
+            return redirect()->back()->withInput();
+        }
 
         DB::beginTransaction();
         try {
@@ -178,6 +188,12 @@ class FundTransferController extends Controller
             'destination_account_id' => 'required|exists:account_accounts,id|different:origin_account_id',
         ]);
 
+        $balanceError = $this->insufficientOriginBalanceMessage((int) $request->origin_account_id, (float) $request->amount);
+        if ($balanceError) {
+            session()->flash('error', $balanceError);
+            return redirect()->back()->withInput();
+        }
+
         DB::beginTransaction();
         try {
             $fund_transfer->date = $request->date;
@@ -272,8 +288,19 @@ class FundTransferController extends Controller
             return redirect()->back();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($data->date)) {
+            return redirect()->back();
+        }
+
         DB::beginTransaction();
         try {
+                $balanceError = $this->insufficientOriginBalanceMessage((int) $data->origin_account_id, (float) $data->amount, true);
+                if ($balanceError) {
+                    DB::rollBack();
+                    session()->flash('error', $balanceError);
+                    return redirect()->back();
+                }
+
         //start debit operations
                 $id_acc_destination = FundTransfer::where('id',$data->id)->value('destination_account_id');
 
@@ -456,6 +483,40 @@ class FundTransferController extends Controller
         }
         
         return trim($result);
+    }
+
+    /**
+     * Retourne un message d'erreur si le compte d'origine n'a pas assez de solde,
+     * null sinon. Le compte 562200 est exempté (solde négatif autorisé).
+     */
+    protected function insufficientOriginBalanceMessage(int $originAccountId, float $amount, bool $lock = false): ?string
+    {
+        $account = AccountAccount::find($originAccountId);
+        if (!$account) {
+            return 'Compte d\'origine introuvable.';
+        }
+
+        if ((string) $account->account_number === self::UNCHECKED_BALANCE_ACCOUNT) {
+            return null;
+        }
+
+        $query = AccountLedger::where('account_id', $originAccountId);
+        if ($lock) {
+            $query->lockForUpdate();
+        }
+        $ledger = $query->first();
+
+        $balance = $ledger
+            ? (float) ($ledger->debit ?? 0) - (float) ($ledger->credit ?? 0)
+            : 0.0;
+
+        if (round($balance - $amount, 2) < 0) {
+            return 'Solde insuffisant sur le compte ' . $account->account_number . ' - ' . $account->account_name
+                . '. Solde actuel : ' . number_format($balance, 2, ',', ' ')
+                . ', montant demandé : ' . number_format($amount, 2, ',', ' ') . '.';
+        }
+
+        return null;
     }
 
     protected function updateLedgerTotals(int $accountId, string $type, float $amount): array

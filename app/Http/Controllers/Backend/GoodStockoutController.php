@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Backend\Concerns\GuardsStockApproval;
+use App\Http\Controllers\Backend\Concerns\PostsSauStockoutAccounting;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,7 @@ use Validator;
 class GoodStockoutController extends Controller
 {
     use GuardsStockApproval;
+    use PostsSauStockoutAccounting;
 
     public $user;
 
@@ -100,7 +102,7 @@ class GoodStockoutController extends Controller
             'quantity.*'  => 'required',
             'asker'  => 'required',
             'destination'  => 'required',
-            'item_movement_type'  => 'required|in:SN,SP,SV,SC,SAJ,SAU',
+            'item_movement_type'  => 'nullable|in:SP,SV,SC,SAJ,SAU',
             'goods_store_id'  => 'required',
             'description'  => 'required|max:490'
         );
@@ -123,7 +125,7 @@ class GoodStockoutController extends Controller
             $destination = $request->destination;
             $goods_store_id = $request->goods_store_id;
             $description = $request->description; 
-            $item_movement_type = $request->item_movement_type; 
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $requisition_no = $request->requisition_no;
             $quantity = $request->quantity;
 
@@ -289,7 +291,7 @@ class GoodStockoutController extends Controller
             'quantity.*'  => 'required',
             'asker'  => 'required',
             'destination'  => 'required',
-            'item_movement_type'  => 'required|in:SN,SP,SV,SC,SAJ,SAU',
+            'item_movement_type'  => 'nullable|in:SP,SV,SC,SAJ,SAU',
             'goods_store_id'  => 'required',
             'description'  => 'required|max:490'
         );
@@ -312,7 +314,7 @@ class GoodStockoutController extends Controller
             $destination = $request->destination;
             $goods_store_id = $request->goods_store_id;
             $description = $request->description; 
-            $item_movement_type = $request->item_movement_type; 
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $requisition_no = $request->requisition_no;
             $quantity = $request->quantity;
 
@@ -509,9 +511,23 @@ class GoodStockoutController extends Controller
                 return back();
             }
 
+            $movementType = $this->resolveStockoutMovementType($stockout->item_movement_type ?? optional($datas->first())->item_movement_type);
+            if ($this->isExcludedStockoutMovement($movementType)) {
+                session()->flash('error', $this->excludedStockoutMovementMessage($movementType));
+
+                return back();
+            }
+            $isSau = $this->isSauMovement($movementType);
+
             $accountSetting = \App\Models\Accounting\AccountSetting::where('active', 1)->first();
-            if (!$goods_store->default_account_id || !$accountSetting || !$accountSetting->f_saj_account_id) {
+            if (!$goods_store->default_account_id || (!$isSau && (!$accountSetting || !$accountSetting->f_saj_account_id))) {
                 session()->flash('error', __('messages.approval_accounts_required'));
+
+                return back();
+            }
+
+            if ($isSau && ($sauError = $this->sauMissingAccountMessage($datas->pluck('item')))) {
+                session()->flash('error', $sauError);
 
                 return back();
             }
@@ -546,9 +562,11 @@ class GoodStockoutController extends Controller
                 }
 
                 $valueStockInitial = ($storeDetail->cump ?? 0) * $quantityStockInitial;
-                $valueStockout = floatval($data->total_cost_value);
                 $quantityTotal = $quantityStockInitial - $quantityStockout;
                 $currentCump = (float) ($storeDetail->cump ?? 0);
+                $valueStockout = $currentCump > 0
+                    ? round($quantityStockout * $currentCump, 2)
+                    : floatval($data->total_cost_value);
 
                 $currency = $stockout->item_purchase_or_sale_currency ?: 'BIF';
                 $movementDate = $data->date
@@ -557,7 +575,7 @@ class GoodStockoutController extends Controller
 
                 $movType = (string) ($data->item_movement_type ?? '');
                 $desc = trim((string) ($data->description ?? $stockout->description ?? ''));
-                if ($desc === '' && $movType !== 'SV' && $movType !== 'SN') {
+                if ($desc === '' && $movType !== 'SV') {
                     $desc = 'Mouvement stock ' . ($movType !== '' ? $movType : 'SORTIE') . ' (' . $stockout_no . ')';
                 }
                 $invRef = $stockout_no;
@@ -647,7 +665,12 @@ class GoodStockoutController extends Controller
                 }
 
                 $stock_account_id = $goods_store->default_account_id;
-                if ($stock_account_id) {
+                if ($isSau) {
+                    $sauLines = array_map(function ($row) {
+                        return ['article' => $row['data']->item, 'amount' => $row['valueStockout']];
+                    }, $prepared);
+                    $this->postSauStockoutEntries((int) $stock_account_id, $sauLines, $stockout->date, $stockout_no, $stockout->description);
+                } elseif ($stock_account_id) {
                     $stockLedgerState = $this->updateLedgerTotals($stock_account_id, 'credit', $totalValue);
 
                     $journalEntryCredit = new AccountJournalEntryDetail();
@@ -663,7 +686,7 @@ class GoodStockoutController extends Controller
                 }
 
                 $accountSetting = AccountSetting::where('active', 1)->first();
-                if ($accountSetting && $accountSetting->f_saj_account_id) {
+                if (!$isSau && $accountSetting && $accountSetting->f_saj_account_id) {
                     $sajLedgerState = $this->updateLedgerTotals($accountSetting->f_saj_account_id, 'debit', $totalValue);
 
                     $journalEntryDebit = new AccountJournalEntryDetail();

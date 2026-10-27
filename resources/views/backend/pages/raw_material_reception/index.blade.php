@@ -174,19 +174,6 @@
                                                 @csrf
                                             </form>
                                         @endif
-                                        @if (Auth::guard('admin')->user()->can('raw_material_reception.delete'))
-                                            @if($reception->status == -1 || $reception->status == 1)
-                                            <a class="btn btn-danger text-white" href="{{ route('admin.raw-material-receptions.destroy', $reception->reception_no) }}"
-                                            onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $reception->reception_no }}').submit(); }">
-                                                @lang('messages.delete')
-                                            </a>
-
-                                            <form id="delete-form-{{ $reception->reception_no }}" action="{{ route('admin.raw-material-receptions.destroy', $reception->reception_no) }}" method="POST" style="display: none;">
-                                                @method('DELETE')
-                                                @csrf
-                                            </form>
-                                            @endif
-                                        @endif
                                         @if (Auth::guard('admin')->user()->can('raw_material_reception.create'))
                                         
                                         <a href="{{ route('admin.raw-material-receptions.fiche_reception',$reception->reception_no) }}"><img src="{{ asset('img/ISSh.gif') }}" width="60" title="@lang('messages.download_then_print')"></a>

@@ -11,6 +11,12 @@
             color: #000000;
             background: #ffffff;
         }
+        :root {
+            --brand-yellow: #eba91b;
+            --brand-black: #000000;
+            --brand-gray: #a7a9ad;
+            --brand-soft: #f5f5f5;
+        }
         table {
             width: 100%;
             border-collapse: collapse;
@@ -28,7 +34,7 @@
         }
         th {
             font-weight: bold;
-            background: #f0f0f0;
+            background: var(--brand-soft);
         }
         .no-border td { border: none; }
         .text-right { text-align: right; }
@@ -37,10 +43,22 @@
             text-align: center;
             font-size: 13px;
             font-weight: bold;
-            text-decoration: underline;
             margin: 8px 0 10px 0;
+            background: var(--brand-yellow);
+            color: var(--brand-black);
+            border: 1px solid var(--brand-black);
+            padding: 7px 8px;
         }
         .bold { font-weight: bold; }
+        .brand-head th {
+            background: var(--brand-yellow);
+            color: var(--brand-black);
+        }
+        .brand-total td,
+        .brand-total th {
+            background: #fff6df;
+            color: var(--brand-black);
+        }
     </style>
 </head>
 <body>
@@ -58,55 +76,13 @@
         $logoSrc = 'data:'.$mime.';base64,'.base64_encode(file_get_contents($logoPath));
     }
 
-    $salaire_brut = (float)($data->somme_salaire_base ?? 0)
-        + (float)($data->indemnite_deplacement ?? 0)
-        + (float)($data->indemnite_logement ?? 0)
-        + (float)($data->prime_fonction ?? 0)
-        + (float)($data->allocation_familiale ?? 0);
-
-    if ($salaire_brut >= 2000000) {
-        $base_assurance_maladie = 2000000;
-    } elseif ($salaire_brut >= 1000000) {
-        $base_assurance_maladie = 1000000;
-    } elseif ($salaire_brut >= 500000) {
-        $base_assurance_maladie = 500000;
-    } elseif ($salaire_brut >= 400000) {
-        $base_assurance_maladie = 400000;
-    } elseif ($salaire_brut >= 300000) {
-        $base_assurance_maladie = 300000;
-    } elseif ($salaire_brut >= 250000) {
-        $base_assurance_maladie = 250000;
-    } else {
-        $base_assurance_maladie = 200000;
-    }
-
-    $base_imposable = $salaire_brut
-        - (float)($data->indemnite_deplacement ?? 0)
-        - (float)($data->indemnite_logement ?? 0)
-        - (float)($data->somme_cotisation_inss ?? 0)
-        - (float)($data->assurance_maladie_employe ?? 0);
-
-    if ($base_imposable <= 150000) {
-        $somme_impot_calc = 0;
-        $taux_ire = '0%';
-    } elseif ($base_imposable <= 300000) {
-        $somme_impot_calc = (($base_imposable - 150000) * 20) / 100;
-        $taux_ire = '20%';
-    } else {
-        $somme_impot_calc = 30000 + (($base_imposable - 300000) * 30) / 100;
-        $taux_ire = '30%';
-    }
-
-    $somme_impot = (float)($data->somme_impot ?? $somme_impot_calc);
-
-    $total_deductions = (float)($data->somme_cotisation_inss ?? 0)
-        + (float)($data->assurance_maladie_employe ?? 0)
-        + $somme_impot
-        + (float)($data->retenue_pret ?? 0)
-        + (float)($data->soins_medicaux ?? 0)
-        + (float)($data->autre_retenue ?? 0);
-
-    $net_a_payer = $salaire_brut - $total_deductions;
+    $paie = \App\Support\PayrollCalculator::fromPaiement($data);
+    $salaire_brut = $paie['rem_brut'];
+    $base_imposable = $paie['base_ire'];
+    $taux_ire = $paie['taux_ire'];
+    $somme_impot = $paie['ire'];
+    $total_deductions = $paie['tot_retenu'];
+    $net_a_payer = $paie['net'];
 
     $anciennete = '';
     if ($employe && !empty($employe->date_debut)) {
@@ -192,7 +168,7 @@
 
 <table>
     <thead>
-        <tr>
+        <tr class="brand-head">
             <th style="width:28%;">RUBRIQUES</th>
             <th style="width:18%;" class="text-right">BASE</th>
             <th style="width:18%;" class="text-center">TAUX (EMPLOYE)</th>
@@ -203,7 +179,7 @@
     <tbody>
         <tr>
             <td>SALAIRE DE BASE</td>
-            <td class="text-right">{{ $fmt($data->somme_salaire_base) }}</td>
+            <td class="text-right">{{ $fmt($paie['salaire_base']) }}</td>
             <td></td>
             <td></td>
             <td></td>
@@ -212,88 +188,88 @@
             <td>ALL. FAMILIALE</td>
             <td></td>
             <td></td>
-            <td class="text-right">{{ $fmt($data->allocation_familiale) }}</td>
+            <td class="text-right">{{ $fmt($paie['allocation_familiale']) }}</td>
             <td></td>
         </tr>
         <tr>
             <td>IND. DE DEPLACEMENT</td>
-            <td class="text-right">{{ $fmt($data->somme_salaire_base) }}</td>
+            <td class="text-right">{{ $fmt($paie['salaire_base']) }}</td>
             <td class="text-center">15%</td>
-            <td class="text-right">{{ $fmt($data->indemnite_deplacement) }}</td>
+            <td class="text-right">{{ $fmt($paie['indemnite_deplacement']) }}</td>
             <td></td>
         </tr>
         <tr>
             <td>IND. DE LOGEMENT</td>
-            <td class="text-right">{{ $fmt($data->somme_salaire_base) }}</td>
+            <td class="text-right">{{ $fmt($paie['salaire_base']) }}</td>
             <td class="text-center">60%</td>
-            <td class="text-right">{{ $fmt($data->indemnite_logement) }}</td>
+            <td class="text-right">{{ $fmt($paie['indemnite_logement']) }}</td>
             <td></td>
         </tr>
         <tr>
             <td>PRIME DE FONCTION</td>
             <td></td>
             <td></td>
-            <td class="text-right">{{ $fmt($data->prime_fonction) }}</td>
+            <td class="text-right">{{ $fmt($paie['prime_fonction']) }}</td>
             <td></td>
         </tr>
-        <tr class="bold">
-            <td>SALAIRE BRUT</td>
-            <td class="text-right">{{ $fmt($data->somme_salaire_base) }}</td>
+        <tr class="bold brand-total">
+            <td>REM_BRUT</td>
+            <td class="text-right">{{ $fmt($paie['salaire_base']) }}</td>
             <td></td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td></td>
         </tr>
         <tr>
-            <td>INSS</td>
+            <td>INSS_TRAV / INSS_PENS</td>
             <td class="text-right">{{ $salaire_brut < 450000 ? $fmt($salaire_brut) : '450 000' }}</td>
             <td class="text-center">4%</td>
-            <td class="text-right">{{ $fmt($data->somme_cotisation_inss) }}</td>
-            <td class="text-right">{{ $fmt(floor((float)($data->inss_employeur ?? 0))) }}</td>
+            <td class="text-right">{{ $fmt($paie['inss_trav']) }}</td>
+            <td class="text-right">{{ $fmt($paie['inss_pens']) }}</td>
         </tr>
         <tr>
             <td>ASSURANCE MALADIE</td>
-            <td class="text-right">{{ $fmt($base_assurance_maladie) }}</td>
-            <td></td>
-            <td class="text-right">{{ $fmt($data->assurance_maladie_employe) }}</td>
-            <td class="text-right">{{ $fmt($data->assurance_maladie_employeur) }}</td>
+            <td class="text-right">400 000</td>
+            <td class="text-center">4%</td>
+            <td class="text-right">{{ $fmt($paie['sante_trav']) }}</td>
+            <td class="text-right">{{ $fmt($paie['sante_qpp']) }}</td>
         </tr>
         <tr>
             <td>SOINS MEDICAUX</td>
             <td></td>
             <td></td>
-            <td class="text-right">{{ $fmt($data->soins_medicaux) }}</td>
+            <td class="text-right">{{ $fmt($paie['soins_medicaux']) }}</td>
             <td></td>
         </tr>
         <tr>
-            <td>IRE</td>
+            <td>IRE Retenu</td>
             <td class="text-right">{{ $fmt($base_imposable) }}</td>
             <td class="text-center">{{ $taux_ire }}</td>
             <td class="text-right">{{ $fmt($somme_impot) }}</td>
             <td></td>
         </tr>
         <tr>
-            <td>RETENUE PRET</td>
+            <td>AVANCE</td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td></td>
-            <td class="text-right">{{ $fmt($data->retenue_pret) }}</td>
+            <td class="text-right">{{ $fmt($paie['avance']) }}</td>
             <td></td>
         </tr>
         <tr>
-            <td>AUTRES RETENUES</td>
+            <td>AUT RETENUES</td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td></td>
-            <td class="text-right">{{ $fmt($data->autre_retenue) }}</td>
+            <td class="text-right">{{ $fmt($paie['autres_retenues']) }}</td>
             <td></td>
         </tr>
-        <tr class="bold">
-            <td>TOT. DEDUCTIONS</td>
+        <tr class="bold brand-total">
+            <td>TOT_RETENU</td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td></td>
             <td class="text-right">{{ $fmt($total_deductions) }}</td>
             <td></td>
         </tr>
-        <tr class="bold">
-            <td>SALAIRE NET</td>
+        <tr class="bold brand-total">
+            <td>NET A PAYER</td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td></td>
             <td class="text-right">{{ $fmt($net_a_payer) }}</td>
@@ -304,15 +280,15 @@
 
 <table>
     <thead>
-        <tr>
+        <tr class="brand-head">
             <th style="width:20%;"></th>
-            <th style="width:27%;" class="text-right">REMUNERATION BRUTE</th>
-            <th style="width:27%;" class="text-right">TOTAL DEDUCTIONS</th>
+            <th style="width:27%;" class="text-right">REM_BRUT</th>
+            <th style="width:27%;" class="text-right">TOT_RETENU</th>
             <th style="width:26%;" class="text-right">NET A PAYER</th>
         </tr>
     </thead>
     <tbody>
-        <tr class="bold">
+        <tr class="bold brand-total">
             <td>MENSUEL</td>
             <td class="text-right">{{ $fmt($salaire_brut) }}</td>
             <td class="text-right">{{ $fmt($total_deductions) }}</td>

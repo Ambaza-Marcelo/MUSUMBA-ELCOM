@@ -101,6 +101,7 @@ class StockReportArticleSearch
         $inventoryModel = $ctx['inventory_model'];
         $entityColumn = $ctx['inventory_entity_column'];
         $storeColumn = $ctx['inventory_store_column'];
+        $relation = $ctx['entity_relation'] ?? null;
 
         /** @var Builder $query */
         $query = $inventoryModel::query()
@@ -109,9 +110,17 @@ class StockReportArticleSearch
             ->where($entityColumn, '!=', '');
 
         if ($term !== '') {
-            $query->where(function ($q) use ($term) {
+            $hasRelation = $relation && class_exists($inventoryModel) && method_exists(new $inventoryModel, $relation);
+            $query->where(function ($q) use ($term, $relation, $hasRelation) {
                 $q->where('name', 'like', '%' . $term . '%')
                     ->orWhere('code', 'like', '%' . $term . '%');
+
+                if ($hasRelation) {
+                    $q->orWhereHas($relation, function ($rq) use ($term) {
+                        $rq->where('name', 'like', '%' . $term . '%')
+                            ->orWhere('code', 'like', '%' . $term . '%');
+                    });
+                }
             });
         }
 
@@ -125,10 +134,63 @@ class StockReportArticleSearch
             ->all();
 
         if (empty($entityIds)) {
-            return [];
+            return self::searchEntitiesInStoreInventory($ctx, $codeStore, $term, $limit);
         }
 
         return self::loadEntityResults($ctx, $entityIds, $term, $limit);
+    }
+
+    /**
+     * Fallback: entities present in store inventory, matched on master item/material name.
+     *
+     * @param  array<string, mixed>  $ctx
+     */
+    protected static function searchEntitiesInStoreInventory(array $ctx, string $codeStore, string $term, int $limit): array
+    {
+        $inventoryModel = $ctx['inventory_model'];
+        $entityColumn = $ctx['inventory_entity_column'];
+        $storeColumn = $ctx['inventory_store_column'];
+        $entityModel = $ctx['entity_model'];
+
+        $entityIds = $inventoryModel::query()
+            ->where($storeColumn, $codeStore)
+            ->whereNotNull($entityColumn)
+            ->where($entityColumn, '!=', '')
+            ->pluck($entityColumn)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($entityIds)) {
+            return [];
+        }
+
+        $query = $entityModel::query()->whereIn('id', $entityIds);
+        if ($term !== '') {
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', '%' . $term . '%')
+                    ->orWhere('code', 'like', '%' . $term . '%');
+            });
+        }
+
+        return $query
+            ->orderBy('name')
+            ->limit($limit)
+            ->get(['id', 'name', 'code'])
+            ->map(function ($row) {
+                $label = trim(($row->code ?? '') . ' - ' . ($row->name ?? ''));
+
+                return [
+                    'id' => (int) $row->id,
+                    'text' => $label !== '-' ? $label : ($row->name ?? ''),
+                    'name' => $row->name ?? '',
+                    'code' => $row->code ?? '',
+                    'source' => 'stock_report',
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

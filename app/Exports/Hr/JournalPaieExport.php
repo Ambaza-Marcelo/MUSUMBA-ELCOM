@@ -34,105 +34,62 @@ class JournalPaieExport implements FromCollection, WithMapping, WithHeadings
 
     public function map($data): array
     {
-        $remuneration_brute = (float)$data->somme_salaire_base
-            + (float)$data->allocation_familiale
-            + (float)$data->indemnite_logement
-            + (float)$data->indemnite_deplacement
-            + (float)$data->prime_fonction;
-
-        if ($remuneration_brute < 450000) {
-            $inss_pension = ($remuneration_brute * 6) / 100;
-            $inss_risque = 2400;
-        } else {
-            $inss_pension = 27000;
-            $inss_risque = 2400;
-        }
-
-        $total_deductions = (float)$data->somme_cotisation_inss
-            + (float)$data->assurance_maladie_employe
-            + (float)$data->somme_impot
-            + (float)$data->retenue_pret
-            + (float)$data->soins_medicaux
-            + (float)$data->autre_retenue;
-        $net_a_payer = $remuneration_brute - $total_deductions;
-
+        $excel = \App\Support\PayrollCalculator::fromPaiement($data);
         $employe = $data->employe;
-        $birthdate = $employe && $employe->birthdate
-            ? Carbon::parse($employe->birthdate)->format('d/m/Y')
-            : '';
-        $dateEmbauche = $employe && $employe->date_debut
-            ? Carbon::parse($employe->date_debut)->format('d/m/Y')
-            : '';
-        $anciennete = $this->formatAnciennete(
-            $employe->date_debut ?? null,
-            $data->date_fin ?? $data->date_debut ?? null
-        );
 
         return [
             $data->id,
-            Carbon::parse($data->date_debut)->format('m/Y'),
-            $employe->matricule_no ?? '',
-            $employe->firstname ?? '',
-            $employe->lastname ?? '',
-            $employe->numero_compte ?? '',
-            optional(optional($employe)->fonction)->name ?? '',
-            optional(optional($employe)->grade)->name ?? '',
-            $birthdate,
-            $dateEmbauche,
-            $anciennete,
-            (float)$data->somme_salaire_base,
-            (float)$data->allocation_familiale,
-            (float)$data->indemnite_logement,
-            (float)$data->indemnite_deplacement,
-            (float)$data->prime_fonction,
-            $remuneration_brute,
-            $inss_pension,
-            $inss_risque,
-            (float)$data->somme_cotisation_inss,
-            (float)$data->inss_employeur,
-            (float)$data->assurance_maladie_employe,
-            (float)$data->assurance_maladie_employeur,
-            (float)$data->somme_impot,
-            (float)$data->retenue_pret,
-            (float)$data->soins_medicaux,
-            (float)$data->autre_retenue,
-            $total_deductions,
-            $net_a_payer,
+            trim(($employe->firstname ?? '').' '.($employe->lastname ?? '')),
+            (float)$data->nbre_jours_ouvrables,
+            $excel['salaire_base'],
+            $excel['allocation_familiale'],
+            $excel['indemnite_logement'],
+            $excel['indemnite_deplacement'],
+            $excel['heures_suppl'],
+            $excel['autres_indemnites'],
+            $excel['prime_fonction'],
+            $excel['rem_brut'],
+            $excel['inss_pens'],
+            $excel['inss_risque'],
+            $excel['sante_qpp'],
+            $excel['charge_employeur'],
+            $excel['inss_trav'],
+            $excel['sante_trav'],
+            $excel['ire'],
+            $excel['avance'],
+            $excel['soins_medicaux'],
+            $excel['autres_retenues'],
+            $excel['tot_retenu'],
+            $excel['net'],
         ];
     }
 
     public function headings(): array
     {
         return [
-            '#',
-            'Mois/Annee',
-            'Matricule',
-            'Nom',
-            'Prenom',
-            'No Compte',
-            'Position',
-            'Niveau d etude (grade)',
-            'Date de naissance',
-            'Date d embauche',
-            'Anciennete',
-            'Salaire de base',
-            'Allocation Familiale',
-            'Indemnite de logement',
-            'Indemnite de deplacement',
-            'Prime de fonction',
-            'Remuneration brute',
-            'INSS Pension',
-            'INSS Risque',
-            'INSS Employe',
-            'INSS Employeur',
-            'Assurance Maladie Employe',
-            'Assurance Maladie Employeur',
+            'N°',
+            'NOM et PRENOM',
+            'JT',
+            'SAL, BASE',
+            'All fam',
+            'Ind Log',
+            'Ind Dépl',
+            'Heure suppl',
+            'AUT_IND',
+            'Prim /Fonx°',
+            'REM_BRUT',
+            'INSS_PENS',
+            'INSS_RSQ',
+            'Santé QPP',
+            'CHARGE_EMPL',
+            'INSS_TRAV',
+            'Santé_TRAV',
             'IRE Retenu',
-            'Retenue Pret',
-            'Soins medicaux',
-            'Autres retenues',
-            'Total Retenue',
-            'Salaire Net',
+            'AVANCE',
+            'Soins méd',
+            'Aut retenues',
+            'TOT_RETENU',
+            'NET A PAYER',
         ];
     }
 

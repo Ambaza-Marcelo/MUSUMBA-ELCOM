@@ -7,25 +7,25 @@
 @section('styles')
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
     :root {
-        --login-steel: #1c2636;
-        --login-slate: #2a3648;
-        --login-amber: #f0b429;
-        --login-amber-hot: #f5b82e;
-        --login-teal: #1a6b63;
-        --login-teal-bright: #24968a;
-        --login-sand: #ebe7df;
-        --login-dust: #d4d0c8;
-        --login-muted: #5c6675;
-        --login-ink: #1a2332;
+        --login-steel: #1e1d24;
+        --login-slate: #3f424c;
+        --login-amber: #eba91b;
+        --login-amber-hot: #f0b429;
+        --login-teal: #eba91b;
+        --login-teal-bright: #f0b429;
+        --login-sand: #eeeff8;
+        --login-dust: #d3d6e0;
+        --login-muted: #6f7180;
+        --login-ink: #1e1d24;
     }
 
     body {
         margin: 0;
         min-height: 100vh;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         background: var(--login-steel);
     }
 
@@ -57,15 +57,15 @@
         flex-direction: column;
         justify-content: space-between;
         background:
-            linear-gradient(125deg, rgba(28, 38, 54, 0.96) 0%, rgba(42, 54, 72, 0.9) 48%, rgba(26, 107, 99, 0.78) 100%),
+            linear-gradient(125deg, #000000 0%, #1e1d24 48%, #3f424c 100%),
             repeating-linear-gradient(
-                -14deg,
+                -45deg,
                 transparent,
-                transparent 22px,
-                rgba(255, 255, 255, 0.03) 22px,
-                rgba(255, 255, 255, 0.03) 23px
+                transparent 14px,
+                rgba(235, 169, 27, 0.08) 14px,
+                rgba(235, 169, 27, 0.08) 28px
             ),
-            radial-gradient(ellipse at 85% 15%, rgba(224, 137, 26, 0.38), transparent 52%);
+            radial-gradient(ellipse at 85% 15%, rgba(235, 169, 27, 0.45), transparent 52%);
         animation: loginHeroIn 0.75s ease-out both;
     }
 
@@ -92,6 +92,16 @@
         width: 120px;
         height: 280px;
         opacity: 0.75;
+    }
+
+    .login-hero .brand-hazard {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 2;
+        height: 6px;
+        margin: 0;
     }
 
     .login-hero-top,
@@ -122,7 +132,7 @@
     }
 
     .login-hero h1 {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: clamp(2.4rem, 5vw, 3.6rem);
         font-weight: 700;
         letter-spacing: 0.03em;
@@ -137,7 +147,7 @@
         margin: 0;
         font-size: 1.02rem;
         line-height: 1.5;
-        color: rgba(235, 231, 223, 0.9);
+        color: rgba(238, 239, 248, 0.92);
     }
 
     .login-hero-meta {
@@ -179,7 +189,7 @@
         justify-content: center;
         padding: clamp(1.5rem, 4vw, 3rem);
         background:
-            linear-gradient(180deg, #faf8f4 0%, var(--login-sand) 100%);
+            linear-gradient(180deg, #ffffff 0%, var(--login-sand) 100%);
         position: relative;
         animation: loginPanelIn 0.7s ease-out 0.1s both;
     }
@@ -196,7 +206,7 @@
 
     .login-card-accent {
         height: 5px;
-        background: linear-gradient(90deg, var(--login-amber) 0%, var(--login-teal) 100%);
+        background: repeating-linear-gradient(-45deg, #000 0 10px, #eba91b 10px 20px);
     }
 
     .login-card-body {
@@ -236,7 +246,7 @@
 
     .login-brand-text strong {
         display: block;
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 1.35rem;
         font-weight: 700;
         letter-spacing: 0.04em;
@@ -256,7 +266,7 @@
     }
 
     .login-card h2 {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         font-size: 1.75rem;
         font-weight: 700;
         letter-spacing: 0.03em;
@@ -314,7 +324,7 @@
         background: #fbfaf8;
         color: var(--login-ink);
         font-size: 0.95rem;
-        font-family: 'IBM Plex Sans', sans-serif;
+        font-family: 'Montserrat', sans-serif;
         outline: none;
         transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
@@ -322,7 +332,7 @@
     .login-input-wrap input:focus {
         border-color: var(--login-teal);
         background: #fff;
-        box-shadow: 0 0 0 3px rgba(26, 107, 99, 0.15);
+        box-shadow: 0 0 0 3px rgba(235, 169, 27, 0.22);
     }
 
     .login-field .invalid-feedback {
@@ -361,11 +371,11 @@
         height: 50px;
         border: none;
         border-radius: 4px;
-        background: linear-gradient(90deg, var(--login-steel) 0%, var(--login-teal) 100%);
-        color: #fff;
-        font-family: 'Barlow Condensed', sans-serif;
-        font-size: 1.2rem;
-        font-weight: 700;
+        background: #eba91b;
+        color: #000;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.05rem;
+        font-weight: 800;
         letter-spacing: 0.1em;
         text-transform: uppercase;
         cursor: pointer;
@@ -373,15 +383,15 @@
         align-items: center;
         justify-content: center;
         gap: 0.55rem;
-        box-shadow: 0 12px 24px rgba(28, 38, 54, 0.22);
+        box-shadow: 0 12px 24px rgba(235, 169, 27, 0.35);
         transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
     }
 
     .login-submit:hover {
         transform: translateY(-2px);
-        box-shadow: 0 16px 28px rgba(26, 107, 99, 0.28);
+        box-shadow: 0 16px 28px rgba(235, 169, 27, 0.4);
         filter: brightness(1.05);
-        color: #fff;
+        color: #000;
     }
 
     .login-submit:active {
@@ -476,6 +486,7 @@
     <div class="container">
         <div class="login-shell">
             <aside class="login-hero" aria-label="@lang('messages.musumba_elcom')">
+                <div class="brand-hazard" aria-hidden="true"></div>
                 <div class="login-hero-top">
                     <img
                         src="{{ asset('img/logo.jpeg') }}"

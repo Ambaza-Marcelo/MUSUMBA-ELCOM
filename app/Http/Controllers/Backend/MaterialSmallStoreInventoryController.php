@@ -563,42 +563,9 @@ class MaterialSmallStoreInventoryController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($inventory_no)
+        public function destroy($inventory_no)
     {
-        if (is_null($this->user) || !$this->user->can('material_small_inventory.delete')) {
-            abort(403, 'Sorry !! You are Unauthorized to delete any inventory !');
-        }
-
-        try {DB::beginTransaction();
-
-        $inventory = MaterialSmallStoreInventory::where('inventory_no', $inventory_no)->first();
-        if (!is_null($inventory)) {
-            $inventory->delete();
-            MaterialSmallStoreInventoryDetail::where('inventory_no',$inventory_no)->delete();
-
-            $email = 'ambazamarcellin2001@gmail.com';
-            $auteur = $this->user->name;
-            $mailData = [
-                    'title' => 'Suppression Inventaire',
-                    'email' => $email,
-                    'inventory_no' => $inventory_no,
-                    'auteur' => $auteur,
-                    ];
-         
-            Mail::to($email)->send(new DeleteInventoryMail($mailData));
-        }
-
-        DB::commit();
-            session()->flash('success', 'Inventory has been deleted !!');
-            return back();
-        } catch (\Exception $e) {
-            // An error occured; cancel the transaction...
-
-            DB::rollback();
-
-            // and throw the error again.
-
-            throw $e;
-        }
+        session()->flash('error', 'La suppression des stocks / magasins est désactivée.');
+        return redirect()->route('admin.material-small-store-inventory.index');
     }
 }

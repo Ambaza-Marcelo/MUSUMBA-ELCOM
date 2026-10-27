@@ -195,19 +195,6 @@
                                                     @csrf
                                                 </form>
                                             @endif
-                                            @if (Auth::guard('admin')->user()->can('account_cash_ouflow.delete'))
-                                                @if(!isset($data->flag2) || $data->flag2 != 1)
-                                                <a class="btn btn-danger text-white" href="{{ route('admin.cash-out-flow.destroy', $data->cash_outflow_no) }}"
-                                                onclick="event.preventDefault(); if(confirm({{ json_encode(__('messages.confirm_delete_irreversible')) }})) { document.getElementById('delete-form-{{ $data->cash_outflow_no }}').submit(); }">
-                                                    @lang('messages.delete')
-                                                </a>
-                                                @endif
-
-                                                <form id="delete-form-{{ $data->cash_outflow_no }}" action="{{ route('admin.cash-out-flow.destroy', $data->cash_outflow_no) }}" method="POST" style="display: none;">
-                                                    @method('DELETE')
-                                                    @csrf
-                                                </form>
-                                            @endif
                                     </td>
                                 </tr>
                                @endforeach

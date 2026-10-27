@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Backend;
 
 use App\Http\Controllers\Backend\Concerns\GuardsStockApproval;
+use App\Http\Controllers\Backend\Concerns\GuardsAccountingPeriod;
+use App\Http\Controllers\Backend\Concerns\PostsSauStockoutAccounting;
 use App\Http\Controllers\Controller;
+use App\Services\Material\MaterialFlowOrchestrator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +41,8 @@ use Mail;
 class MaterialStockoutController extends Controller
 {
     use GuardsStockApproval;
+    use GuardsAccountingPeriod;
+    use PostsSauStockoutAccounting;
     //
     public $user;
 
@@ -144,7 +149,7 @@ class MaterialStockoutController extends Controller
                 'asker'  => 'required',
                 'origin_bg_store_id'  => 'required',
                 'destination'  => 'required',
-                'item_movement_type'  => 'required|in:SN,SP,SV,SD,SC,SAJ,ST,SAU',
+                'item_movement_type'  => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
                 'description'  => 'required|max:490'
             );
 
@@ -164,7 +169,7 @@ class MaterialStockoutController extends Controller
             $destination = $request->destination;
             $description =$request->description; 
             $origin_bg_store_id = $request->origin_bg_store_id;
-            $item_movement_type = $request->item_movement_type;
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $quantity = $request->quantity;
             $store_type = $request->store_type;
             
@@ -263,7 +268,7 @@ class MaterialStockoutController extends Controller
                 'asker'  => 'required',
                 'origin_extra_store_id'  => 'required',
                 'destination'  => 'required',
-                'item_movement_type'  => 'required|in:SN,SP,SV,SD,SC,SAJ,ST,SAU',
+                'item_movement_type'  => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
                 'description'  => 'required'
             );
 
@@ -283,7 +288,7 @@ class MaterialStockoutController extends Controller
             $destination = $request->destination;
             $description =$request->description; 
             $origin_extra_store_id = $request->origin_extra_store_id;
-            $item_movement_type = $request->item_movement_type;
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $quantity = $request->quantity;
             $store_type = $request->store_type;
             
@@ -383,7 +388,7 @@ class MaterialStockoutController extends Controller
                 'asker'  => 'required',
                 'origin_sm_store_id'  => 'required',
                 'destination'  => 'required',
-                'item_movement_type'  => 'required|in:SN,SP,SV,SD,SC,SAJ,ST,SAU',
+                'item_movement_type'  => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
                 'description'  => 'required'
             );
 
@@ -403,7 +408,7 @@ class MaterialStockoutController extends Controller
             $destination = $request->destination;
             $origin_sm_store_id = $request->origin_sm_store_id;
             $description =$request->description; 
-            $item_movement_type = $request->item_movement_type;
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $quantity = $request->quantity;
             $store_type = $request->store_type;
             
@@ -576,7 +581,7 @@ class MaterialStockoutController extends Controller
             'quantity.*'  => 'required',
             'asker'  => 'required',
             'destination'  => 'required',
-            'item_movement_type'  => 'required|in:SN,SP,SV,SD,SC,SAJ,ST,SAU',
+            'item_movement_type'  => 'nullable|in:SP,SV,SD,SC,SAJ,SAU',
             'description'  => 'required|max:490'
         );
 
@@ -596,7 +601,7 @@ class MaterialStockoutController extends Controller
             $asker = $request->asker;
             $destination = $request->destination;
             $description = $request->description; 
-            $item_movement_type = $request->item_movement_type;
+            $item_movement_type = $this->resolveStockoutMovementType($request->item_movement_type);
             $origin_bg_store_id = $request->origin_bg_store_id;
             $origin_sm_store_id = $request->origin_sm_store_id;
             $origin_extra_store_id = $request->origin_extra_store_id;
@@ -829,7 +834,34 @@ class MaterialStockoutController extends Controller
             return back();
         }
 
+        if ($this->abortIfAccountingPeriodLocked($stockoutHeader->date ?? optional($stockoutHeader)->created_at)) {
+            return back();
+        }
+
         $datas = MaterialStockoutDetail::where('stockout_no', $stockout_no)->get();
+
+        $movementType = $this->resolveStockoutMovementType($stockoutHeader->item_movement_type ?? optional($datas->first())->item_movement_type);
+        if ($this->isExcludedStockoutMovement($movementType)) {
+            DB::rollback();
+            session()->flash('error', $this->excludedStockoutMovementMessage($movementType));
+            return redirect()->back();
+        }
+        $isSau = $this->isSauMovement($movementType);
+        $orchestrator = app(MaterialFlowOrchestrator::class);
+
+        if ($isSau) {
+            $stockableMaterials = Material::whereIn('id', $datas->pluck('material_id')->filter()->unique())
+                ->get()
+                ->filter(function (Material $material) use ($orchestrator) {
+                    return $orchestrator->affectsPhysicalStock($material);
+                });
+            if ($sauError = $this->sauMissingAccountMessage($stockableMaterials)) {
+                DB::rollback();
+                session()->flash('error', $sauError);
+                return redirect()->back();
+            }
+        }
+        $sauLines = [];
 
         // Initialize arrays
         $reportBigStoreData = [];
@@ -840,6 +872,12 @@ class MaterialStockoutController extends Controller
         $flag_sm = 0;
 
         foreach($datas as $data){
+
+            $materialModel = Material::find($data->material_id);
+            if ($materialModel && !$orchestrator->affectsPhysicalStock($materialModel)) {
+                continue; // PAS de diminution stock pour non stockable
+            }
+            $value_stockout = 0;
 
             if (!empty($data->origin_bg_store_id)) {
                 $code_store_origin = MaterialBigStore::where('id',$data->origin_bg_store_id)->value('code');
@@ -1019,8 +1057,10 @@ class MaterialStockoutController extends Controller
                     $flag_big = 1;
 
             }
-                
-  
+
+            if ($isSau && $materialModel && $value_stockout > 0) {
+                $sauLines[] = ['article' => $materialModel, 'amount' => $value_stockout];
+            }
         }
 
         $cmp = DB::table('material_stockout_details')
@@ -1093,7 +1133,7 @@ class MaterialStockoutController extends Controller
 
                 if (empty($m_sp_account_id)) {
                     DB::rollback();
-                    session()->flash('error', 'Account ID for SP adjustment not configured. Please configure m_sp_account_id in Account Settings.');
+                    session()->flash('error', 'Le compte des sorties SP n\'est pas configuré dans les paramètres comptables.');
                     return redirect()->back();
                 }
 
@@ -1138,7 +1178,7 @@ class MaterialStockoutController extends Controller
 
                 if (empty($m_sv_account_id)) {
                     DB::rollback();
-                    session()->flash('error', 'Account ID for SV adjustment not configured. Please configure m_sv_account_id in Account Settings.');
+                    session()->flash('error', 'Le compte des sorties SV n\'est pas configuré dans les paramètres comptables.');
                     return redirect()->back();
                 }
 
@@ -1183,7 +1223,7 @@ class MaterialStockoutController extends Controller
 
                 if (empty($m_sc_account_id)) {
                     DB::rollback();
-                    session()->flash('error', 'Account ID for SC adjustment not configured. Please configure m_sc_account_id in Account Settings.');
+                    session()->flash('error', 'Le compte des sorties SC n\'est pas configuré dans les paramètres comptables.');
                     return redirect()->back();
                 }
 
@@ -1204,6 +1244,18 @@ class MaterialStockoutController extends Controller
                 AccountJournalEntryDetail::insert($insert_journal_debit_sc_data_acc2);
             
                 //end debit operation
+            }elseif ($isSau) {
+                try {
+                    $this->postSauStockoutEntries((int) $id_acc_stock, $sauLines, $firstData->date, $stockout_no, $firstData->description);
+                } catch (\RuntimeException $ex) {
+                    DB::rollback();
+                    session()->flash('error', $ex->getMessage());
+                    return redirect()->back();
+                }
+
+                foreach ($sauLines as $line) {
+                    $orchestrator->activateOnApprovedStockout($line['article'], $firstData->date ?? now(), (float) $line['amount']);
+                }
             }else{
                 //start credit operations
                 $stockLedgerState = $this->updateLedgerTotals($id_acc_stock, 'credit', $cmp);

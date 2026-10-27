@@ -37,14 +37,22 @@ class RawMaterialTransferDetail extends Model
     ];
 
     public function origineStore(){
-        return $this->belongsTo('App\Models\DrinkBigStore');
+        return $this->belongsTo(RawMaterialBigStore::class, 'origin_store_id');
     }
 
     public function destinationStore(){
-        return $this->belongsTo('App\Models\DrinkSmallStore');
+        return $this->belongsTo(RawMaterialSmallStore::class, 'destination_store_id');
+    }
+
+    public function originExtraStore(){
+        return $this->belongsTo(RawMaterialExtraBigStore::class, 'origin_extra_store_id');
+    }
+
+    public function destinationBigStore(){
+        return $this->belongsTo(RawMaterialBigStore::class, 'dest_bg_store_id');
     }
 
     public function rawMaterial(){
-        return $this->belongsTo('App\Models\RawMaterial', 'r_material_id');
+        return $this->belongsTo(RawMaterial::class, 'r_material_id');
     }
 }
